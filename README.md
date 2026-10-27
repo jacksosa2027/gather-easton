@@ -29,21 +29,3 @@ During a meeting with the clients Ella and Julie, Ella stated that she spent abo
 1. Find an event, use tags to filter out specific events, open an event to see detail in it. Make event info easily shareable.
 2. Submit event details, include image and link, receive a confirmation of the submission awaiting review.
 3. Inspect pending docs, correct information, approve or reject submissions, provide reasoning when changes are needed.
-
-## Sprint 1: Understand Users
-
-We collected information on potential users, looking into longtime residents who already have routines ofr finding events, while others search for them or rely on friends. Event information is as Ella said: fragmented across websites, Facebook pages, and local business ads.
-
-## Sprint 2 / Roadmap: Prototype
-
-Deliverables:
-
-- Connect main research findings to an interface
-- Sketch event listing, details, submission form, and admin review queue
-- Build a clickable prototype connecting the two screens above
-- Include date/category filtering, with field errors, submission confirmation, and pending/approved/rejected
-- Check screens on both desktops and phones
-- Run a  formative test, using some participants to test out the site
-- Record problems and revise those problems
-- Document changes, questions, and the next steps
-
