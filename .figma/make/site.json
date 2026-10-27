@@ -1,0 +1,10 @@
+{
+  "description": "Streamlines website design by providing intuitive tools to create initial layouts, helping users quickly visualize and plan their web projects.",
+  "robots": {
+    "index": false
+  },
+  "accessibility": {
+    "addBypassLinks": false,
+    "ignoreReducedMotion": false
+  }
+}
