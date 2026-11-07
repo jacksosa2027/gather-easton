@@ -142,6 +142,8 @@ These checks cover frontend types/build and submission/date validation. The depl
 
 Calendar browsing, category/search filters, and event details passed local Chromium checks on desktop and mobile, with tablet navigation also checked. The run fixed details-modal focus/Escape handling and legacy-response fallback behavior. The hosted API returned 51 events without `status`, so live API-backed browsing still needs verification after the function deployment is updated. See the [November 7 verification report](docs/verification/sprint3-browse.md) for coverage and remaining prerequisites.
 
+The submit/refresh flow also passed in desktop/mobile Chromium using the current function source with isolated persistent test storage: pending records survived reload and stayed out of the public API and calendar. The hosted submission attempt returned `404`, so live persistence/privacy verification remains blocked. See the [submission verification report](docs/verification/sprint3-submission.md).
+
 ## Event submission API
 
 `POST /make-server-1f1ed1f9/events` accepts a JSON event object without a staff PIN.
