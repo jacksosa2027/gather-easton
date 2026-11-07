@@ -24,7 +24,9 @@ function forgetSavedPin() {
   }
 }
 
-export default function useStaffAccess() {
+export default function useStaffAccess(
+  onApproved?: (event: CommunityEvent) => void,
+) {
   const [pin, setPin] = useState("")
   const [staffPin, setStaffPin] = useState<string | null>(null)
   const [isChecking, setIsChecking] = useState(false)
@@ -199,8 +201,11 @@ export default function useStaffAccess() {
       })
 
       try {
+        let approvedEvent: CommunityEvent | undefined
         if (action === "approve") {
-          await eventsApi.approve(id, staffPin, { signal: controller.signal })
+          approvedEvent = await eventsApi.approve(id, staffPin, {
+            signal: controller.signal,
+          })
         } else {
           await eventsApi.reject(id, staffPin, rejectionReason, {
             signal: controller.signal,
@@ -216,6 +221,7 @@ export default function useStaffAccess() {
             action === "approve" ? "approved" : "rejected"
           }.`,
         )
+        if (approvedEvent) onApproved?.(approvedEvent)
       } catch (failure) {
         if (controller.signal.aborted) return
         if (
@@ -247,7 +253,7 @@ export default function useStaffAccess() {
         }
       }
     },
-    [staffPin, pendingEvents, lock],
+    [staffPin, pendingEvents, lock, onApproved],
   )
 
   return {

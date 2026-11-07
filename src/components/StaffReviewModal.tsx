@@ -1,15 +1,18 @@
 import { useEffect, useRef } from "react"
+import type { CommunityEvent } from "../../supabase/functions/_shared/events"
 import useStaffAccess from "../hooks/useStaffAccess"
 import PendingEventQueue from "./PendingEventQueue"
 
 type StaffReviewModalProps = {
   onClose: () => void
   returnFocusTo: HTMLElement | null
+  onApproved: (event: CommunityEvent) => void
 }
 
 export default function StaffReviewModal({
   onClose,
   returnFocusTo,
+  onApproved,
 }: StaffReviewModalProps) {
   const dialogRef = useRef<HTMLDivElement>(null)
   const pinRef = useRef<HTMLInputElement>(null)
@@ -31,7 +34,7 @@ export default function StaffReviewModal({
     reviewErrors,
     reviewMessage,
     review,
-  } = useStaffAccess()
+  } = useStaffAccess(onApproved)
 
   useEffect(() => {
     const previousFocus = returnFocusTo ?? document.activeElement

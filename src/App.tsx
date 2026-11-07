@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { CommunityEvent } from "../supabase/functions/_shared/events";
 import StaffReviewModal from "./components/StaffReviewModal";
 import { novemberEvents } from "./data/novemberEvents";
@@ -307,6 +307,9 @@ const weekDays = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 export default function App() {
   const [databaseEvents, setDatabaseEvents] = useState<CommunityEvent[]>(novemberEvents);
+  const [isRefreshingEvents, setIsRefreshingEvents] = useState(false);
+  const [publicEventsError, setPublicEventsError] = useState<string | null>(null);
+  const publicEventsRequest = useRef<AbortController | null>(null);
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState("All events");
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -346,23 +349,45 @@ export default function App() {
     [category, query, events],
   );
 
-  useEffect(() => {
+  const refreshPublicEvents = useCallback(async () => {
+    publicEventsRequest.current?.abort();
     const controller = new AbortController();
+    publicEventsRequest.current = controller;
+    setIsRefreshingEvents(true);
+    setPublicEventsError(null);
 
-    async function loadEvents() {
-      try {
-        const events = await eventsApi.list({ signal: controller.signal });
-        setDatabaseEvents(events);
-      } catch (error) {
-        if ((error as Error).name !== "AbortError") {
-          console.error("Unable to load database events", error);
-        }
+    try {
+      const events = await eventsApi.list({ signal: controller.signal });
+      if (!controller.signal.aborted) setDatabaseEvents(events);
+    } catch {
+      if (!controller.signal.aborted) {
+        setPublicEventsError("We couldn't refresh the calendar. Your current events are still shown.");
+      }
+    } finally {
+      if (publicEventsRequest.current === controller) {
+        publicEventsRequest.current = null;
+        setIsRefreshingEvents(false);
       }
     }
-
-    loadEvents();
-    return () => controller.abort();
   }, []);
+
+  const handleEventApproved = useCallback((approvedEvent: CommunityEvent) => {
+    if (approvedEvent.status !== "approved") return;
+    setDatabaseEvents((current) => [
+      ...current.filter((event) => event.id !== approvedEvent.id),
+      approvedEvent,
+    ]);
+    void refreshPublicEvents();
+  }, [refreshPublicEvents]);
+
+  useEffect(() => {
+    void refreshPublicEvents();
+    return () => {
+      const request = publicEventsRequest.current;
+      publicEventsRequest.current = null;
+      request?.abort();
+    };
+  }, [refreshPublicEvents]);
 
   const visibleMonthEvents = filteredEvents.filter(
     (event) =>
@@ -597,6 +622,16 @@ export default function App() {
               </button>
             </div>
           </div>
+
+          {isRefreshingEvents && <p className="calendar-refresh-status" role="status">Updating calendar…</p>}
+          {publicEventsError && (
+            <div className="calendar-refresh-error" role="alert">
+              <p>{publicEventsError}</p>
+              <button className="text-button" type="button" onClick={() => { void refreshPublicEvents(); }}>
+                Retry calendar refresh
+              </button>
+            </div>
+          )}
 
           <div className="category-row" aria-label="Filter by category">
             {categories.map((item) => (
@@ -888,6 +923,7 @@ export default function App() {
         <StaffReviewModal
           onClose={() => setStaffReviewOpen(false)}
           returnFocusTo={staffReviewReturnFocus.current}
+          onApproved={handleEventApproved}
         />
       )}
 
