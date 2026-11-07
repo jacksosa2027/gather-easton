@@ -27,6 +27,16 @@ During a meeting with the clients Ella and Julie, Ella stated that she spent abo
 2. Submit event details, include image and link, receive a confirmation of the submission awaiting review.
 3. Inspect pending docs, correct information, approve or reject submissions, provide reasoning when changes are needed.
 
+## Calendar export
+
+Open an event and choose **Add to Google Calendar** to open a prefilled Google
+Calendar event with its name, date, time, venue, description, and organizer link
+when present. Review and save the event in Google Calendar. This works without
+using **Connect calendar**.
+
+The navigation's **Connect calendar** flow remains a prototype interaction. It
+does not sign in to Google or Apple accounts or synchronize calendars.
+
 ## Staff API PIN
 
 Set `STAFF_PIN` in the Supabase Edge Function environment. For local demos, put
