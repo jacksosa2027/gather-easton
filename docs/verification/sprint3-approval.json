@@ -1,0 +1,59 @@
+{
+  "environment": "Actual Chromium + Vite frontend + current Hono function source; only KV adapter replaced with isolated JSON-file storage",
+  "clock": "2026-11-07 12:00 America/New_York",
+  "live": {
+    "endpoint": "GET /make-server-1f1ed1f9/events/pending",
+    "status": 404,
+    "body": "404 Not Found",
+    "staffPinProvided": false,
+    "approvalRequestsSent": 0,
+    "precedingHostedSubmissionStatus": 404,
+    "precedingHostedSubmissionCreated": false,
+    "verdict": "blocked: hosted staff queue route unavailable; no hosted test record exists to approve"
+  },
+  "local": [
+    {
+      "device": "desktop",
+      "sourceTestTitle": "QA pending refresh desktop 449e191e",
+      "id": 7978740735554945,
+      "invalidPinStatus": 401,
+      "validPinStatus": 200,
+      "pendingQueueDisplayed": true,
+      "pinRememberedInTabAndClearedOnLock": true,
+      "approveStatus": 200,
+      "status": "approved",
+      "reviewedAt": "2026-11-07T22:18:42.927Z",
+      "removedFromPendingQueue": true,
+      "publicApiContainsApprovedRecord": true,
+      "visibleOnCalendarWithoutReload": true,
+      "mainDocumentNavigationsDuringApproval": 0,
+      "monthSearchCategoryAndDateFilterPreserved": true,
+      "detailsVerifiedAfterApproval": true,
+      "approvedRecordPersistsAfterApiRecreationAndPageReload": true,
+      "visibleInAnonymousBrowserContext": true,
+      "otherPendingControlRemainsPrivate": true
+    },
+    {
+      "device": "mobile",
+      "sourceTestTitle": "QA pending refresh mobile 3bcc3d37",
+      "id": 1373248432262555,
+      "invalidPinStatus": 401,
+      "validPinStatus": 200,
+      "pendingQueueDisplayed": true,
+      "pinRememberedInTabAndClearedOnLock": true,
+      "approveStatus": 200,
+      "status": "approved",
+      "reviewedAt": "2026-11-07T22:18:44.012Z",
+      "removedFromPendingQueue": true,
+      "publicApiContainsApprovedRecord": true,
+      "visibleOnCalendarWithoutReload": true,
+      "mainDocumentNavigationsDuringApproval": 0,
+      "monthSearchCategoryAndDateFilterPreserved": true,
+      "detailsVerifiedAfterApproval": true,
+      "approvedRecordPersistsAfterApiRecreationAndPageReload": true,
+      "visibleInAnonymousBrowserContext": true,
+      "otherPendingControlRemainsPrivate": true
+    }
+  ],
+  "runtimeErrors": []
+}

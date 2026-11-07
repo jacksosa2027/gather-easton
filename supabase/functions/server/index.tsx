@@ -1,10 +1,15 @@
-import { Hono } from "npm:hono";
+import { Hono, type Handler } from "npm:hono";
 import { cors } from "npm:hono/cors";
 import { logger } from "npm:hono/logger";
+import type { CommunityEvent } from "../_shared/events.ts";
 import * as kv from "./kv_store.tsx";
+import { requireStaffPin } from "./staff_auth.ts";
+import { EventSubmissionError, parseEventSubmission } from "./event_submission.ts";
 const app = new Hono();
+// Re-seed existing KV records so legacy seeds receive approved status.
+const SEED_VERSION = 4;
 
-const seedEvents = [
+const seedEvents: CommunityEvent[] = [
   {
     id: 101,
     title: "Easton Riverside Yoga",
@@ -719,7 +724,7 @@ const seedEvents = [
     alt: "A community choir singing together",
     description: "Sing seasonal favorites with Easton community choirs or simply listen and enjoy the music.",
   },
-];
+].map((event): CommunityEvent => ({ ...event, status: "approved" }));
 
 // Enable logger
 app.use('*', logger(console.log));
@@ -729,12 +734,17 @@ app.use(
   "/*",
   cors({
     origin: "*",
-    allowHeaders: ["Content-Type", "Authorization"],
+    allowHeaders: ["Content-Type", "Authorization", "X-Staff-Pin"],
     allowMethods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     exposeHeaders: ["Content-Length"],
     maxAge: 600,
   }),
 );
+
+// Protect staff paths before their handlers are registered.
+app.use("/make-server-1f1ed1f9/events/pending", requireStaffPin);
+app.use("/make-server-1f1ed1f9/events/:id/approve", requireStaffPin);
+app.use("/make-server-1f1ed1f9/events/:id/reject", requireStaffPin);
 
 // Health check endpoint
 app.get("/make-server-1f1ed1f9/health", (c) => {
@@ -745,15 +755,16 @@ app.get("/make-server-1f1ed1f9/events", async (c) => {
   try {
     const seedVersion = await kv.get("events:seed-version");
 
-    if (seedVersion !== 3) {
+    if (seedVersion !== SEED_VERSION) {
       await kv.mset(
         seedEvents.map((event) => `event:seed:${event.id}`),
         seedEvents,
       );
-      await kv.set("events:seed-version", 3);
+      await kv.set("events:seed-version", SEED_VERSION);
     }
 
-    const events = await kv.getByPrefix("event:");
+    const storedEvents: CommunityEvent[] = await kv.getByPrefix("event:");
+    const events = storedEvents.filter((event) => event.status === "approved");
     events.sort(
       (a, b) =>
         new Date(`${a.year}-${String(eventMonthNumber(a.month)).padStart(2, "0")}-${a.date}`).getTime() -
@@ -766,6 +777,106 @@ app.get("/make-server-1f1ed1f9/events", async (c) => {
     return c.json({ error: "Unable to load events" }, 500);
   }
 });
+
+app.post("/make-server-1f1ed1f9/events", async (c) => {
+  try {
+    let input: unknown;
+    try {
+      input = await c.req.json();
+    } catch {
+      return c.json({ error: "Invalid JSON request body" }, 400);
+    }
+
+    const details = parseEventSubmission(input);
+    // Use 53 random bits to preserve the shared model's safe-integer numeric IDs.
+    const random = crypto.getRandomValues(new Uint32Array(2));
+    const event: CommunityEvent = {
+      ...details,
+      id: random[0] * 2 ** 21 + (random[1] >>> 11),
+      status: "pending",
+      submittedAt: new Date().toISOString(),
+    };
+
+    await kv.set(`event:submission:${event.id}`, event);
+    return c.json({ event }, 201);
+  } catch (error) {
+    if (error instanceof EventSubmissionError) {
+      return c.json({ error: error.message }, 400);
+    }
+    console.log(`Failed to submit event: ${error}`);
+    return c.json({ error: "Unable to submit event" }, 500);
+  }
+});
+
+app.get("/make-server-1f1ed1f9/events/pending", async (c) => {
+  try {
+    const submissions: CommunityEvent[] = await kv.getByPrefix("event:submission:");
+    const events = submissions
+      .filter((event) => event.status === "pending")
+      .sort((a, b) => (a.submittedAt ?? "").localeCompare(b.submittedAt ?? ""));
+    return c.json({ events });
+  } catch (error) {
+    console.log(`Failed to load pending events: ${error}`);
+    return c.json({ error: "Unable to load pending events" }, 500);
+  }
+});
+
+app.post("/make-server-1f1ed1f9/events/:id/approve", reviewSubmission("approved"));
+app.post("/make-server-1f1ed1f9/events/:id/reject", reviewSubmission("rejected"));
+
+function reviewSubmission(status: "approved" | "rejected"): Handler {
+  return async (c) => {
+    try {
+      const id = c.req.param("id") ?? "";
+      if (!/^(0|[1-9]\d*)$/.test(id) || !Number.isSafeInteger(Number(id))) {
+        return c.json({ error: "Invalid event ID" }, 400);
+      }
+
+      let rejectionReason: string | undefined;
+      if (status === "rejected") {
+        let input: unknown;
+        try {
+          input = await c.req.json();
+        } catch {
+          return c.json({ error: "Invalid JSON request body" }, 400);
+        }
+        if (
+          !input || typeof input !== "object" || Array.isArray(input) ||
+          !("rejectionReason" in input) || typeof input.rejectionReason !== "string" ||
+          !input.rejectionReason.trim()
+        ) {
+          return c.json({ error: "rejectionReason is required" }, 400);
+        }
+        rejectionReason = input.rejectionReason.trim();
+      }
+
+      const key = `event:submission:${id}`;
+      const event: CommunityEvent | undefined = await kv.get(key);
+      if (!event) {
+        return c.json({ error: "Event submission not found" }, 404);
+      }
+      if (event.status !== "pending") {
+        return c.json({ error: "Event submission has already been reviewed" }, 409);
+      }
+
+      const reviewedEvent: CommunityEvent = {
+        ...event,
+        status,
+        reviewedAt: new Date().toISOString(),
+      };
+      if (status === "rejected") {
+        reviewedEvent.rejectionReason = rejectionReason;
+      } else {
+        delete reviewedEvent.rejectionReason;
+      }
+      await kv.set(key, reviewedEvent);
+      return c.json({ event: reviewedEvent });
+    } catch (error) {
+      console.log(`Failed to review event submission: ${error}`);
+      return c.json({ error: "Unable to review event submission" }, 500);
+    }
+  };
+}
 
 function eventMonthNumber(month: string) {
   return ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"].indexOf(month) + 1;

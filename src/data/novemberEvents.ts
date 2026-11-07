@@ -1,3 +1,5 @@
+import type { CommunityEvent } from "../../supabase/functions/_shared/events";
+
 const categoryImages = {
   "Arts & Culture":
     "https://images.unsplash.com/photo-1561214115-f2f134cc4912?crop=entropy&cs=tinysrgb&fit=crop&fm=jpg&q=85&w=900",
@@ -48,9 +50,10 @@ const novemberEventRows = [
   [152, "Community Choir Sing-Along", "Music", "29", "3:00 PM – 4:30 PM", "First United Church of Christ"],
 ] as const;
 
-export const novemberEvents = novemberEventRows.map(
+export const novemberEvents: CommunityEvent[] = novemberEventRows.map(
   ([id, title, category, date, time, location]) => ({
     id,
+    status: "approved",
     title,
     category,
     year: 2026,

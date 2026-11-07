@@ -1,0 +1,37 @@
+{
+  "clock": "2026-11-07 12:00 America/New_York",
+  "liveApi": {
+    "status": 200,
+    "count": 51,
+    "missingStatus": 51
+  },
+  "liveBrowse": {
+    "renderedNovemberEvents": 34,
+    "fallbackWarning": true
+  },
+  "desktop": [
+    "November calendar renders approved API events and excludes pending/rejected events",
+    "No page-level horizontal overflow",
+    "Previous/next month controls cover October–January, including year rollover and empty months",
+    "Case-insensitive title/venue search, category filtering, combined no-results and reset",
+    "When selector combines with search and supports weekend/week plus clear on both viewports",
+    "Details with source: name, full date, time, venue, keyboard open/Tab/Escape, focus return and scroll lock",
+    "Details without source: name, full date, time, venue, keyboard open/Tab/Escape, focus return and scroll lock",
+    "Pointer opening, explicit Close and backdrop closing"
+  ],
+  "mobile": [
+    "November calendar renders approved API events and excludes pending/rejected events",
+    "No page-level horizontal overflow",
+    "Mobile navigation opens/closes and the calendar grid scrolls horizontally",
+    "Previous/next month controls cover October–January, including year rollover and empty months",
+    "Case-insensitive title/venue search, category filtering, combined no-results and reset",
+    "When selector combines with search and supports weekend/week plus clear on both viewports",
+    "Details with source: name, full date, time, venue, keyboard open/Tab/Escape, focus return and scroll lock",
+    "Details without source: name, full date, time, venue, keyboard open/Tab/Escape, focus return and scroll lock",
+    "Pointer opening, explicit Close and backdrop closing"
+  ],
+  "tablet": [
+    "900px header uses the mobile menu and has no page overflow"
+  ],
+  "runtimeErrors": []
+}

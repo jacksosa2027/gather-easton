@@ -1,0 +1,57 @@
+{
+  "environment": "Actual Chromium + Vite frontend + current Hono function source; only KV adapter replaced with isolated JSON-file storage",
+  "clock": "2026-11-07 12:00 America/New_York",
+  "live": {
+    "title": "Sprint 3 pending verification 2026-11-07 2993a7ea",
+    "date": "2026-11-14",
+    "endpoint": "POST /make-server-1f1ed1f9/events",
+    "status": 404,
+    "record": null,
+    "awaitingReview": false,
+    "formPreservedOnFailure": true,
+    "hiddenBeforeRefresh": null,
+    "hiddenAfterRefresh": null,
+    "publicApiExposesPending": null,
+    "submissionRequests": 1,
+    "runtimeErrors": [],
+    "formError": "Events API request failed (404) Your details have been kept so you can try again.",
+    "verdict": "blocked: no pending submission was created"
+  },
+  "local": [
+    {
+      "device": "desktop",
+      "title": "QA pending refresh desktop 449e191e",
+      "id": 7978740735554945,
+      "postStatus": 201,
+      "status": "pending",
+      "submittedAt": "2026-11-07T22:10:45.695Z",
+      "awaitingReview": true,
+      "storedInPersistentTestAdapter": true,
+      "apiInstanceRecreated": true,
+      "presentInStaffQueueAfterReload": true,
+      "absentFromPublicApi": true,
+      "absentFromCalendarBeforeAndAfterReload": true,
+      "absentInFreshBrowserContext": true,
+      "approvedControlVisible": true,
+      "submissionRequests": 1
+    },
+    {
+      "device": "mobile",
+      "title": "QA pending refresh mobile 3bcc3d37",
+      "id": 1373248432262555,
+      "postStatus": 201,
+      "status": "pending",
+      "submittedAt": "2026-11-07T22:10:46.428Z",
+      "awaitingReview": true,
+      "storedInPersistentTestAdapter": true,
+      "apiInstanceRecreated": true,
+      "presentInStaffQueueAfterReload": true,
+      "absentFromPublicApi": true,
+      "absentFromCalendarBeforeAndAfterReload": true,
+      "absentInFreshBrowserContext": true,
+      "approvedControlVisible": true,
+      "submissionRequests": 1
+    }
+  ],
+  "runtimeErrors": []
+}

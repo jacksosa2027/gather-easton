@@ -1,7 +1,10 @@
-import { useEffect, useMemo, useState } from "react";
-import { projectId, publicAnonKey } from "../utils/supabase/info";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { CommunityEvent } from "../supabase/functions/_shared/events";
+import StaffReviewModal from "./components/StaffReviewModal";
 import { novemberEvents } from "./data/novemberEvents";
 import { createGoogleCalendarUrl } from "./utils/googleCalendar";
+import { EventsApiError, eventsApi } from "./utils/eventsApi";
+import { getEventDate, getEventDateRange, isEventInDateRange, type EventDateFilter } from "./utils/eventDateFilter";
 
 const images = {
   hero: "https://images.unsplash.com/photo-1731094114672-f6f446490ebb?crop=entropy&cs=tinysrgb&fit=crop&fm=jpg&q=85&w=1800",
@@ -61,22 +64,6 @@ function Icon({ name, filled = false }: { name: IconName; filled?: boolean }) {
     </svg>
   );
 }
-
-type CommunityEvent = {
-  id: number;
-  title: string;
-  category: string;
-  year?: number;
-  date: string;
-  month: string;
-  day: string;
-  time: string;
-  location: string;
-  image: string;
-  alt: string;
-  description: string;
-  sourceUrl?: string;
-};
 
 const initialEvents: CommunityEvent[] = [
   {
@@ -289,7 +276,7 @@ const initialEvents: CommunityEvent[] = [
       "Join the Easton Recreation Bureau for its annual free community visit with Santa in Centre Square.",
     sourceUrl: "https://www.facebook.com/cityofeastonpa",
   },
-];
+].map((event): CommunityEvent => ({ ...event, status: "approved" }));
 
 const categories = [
   "All events",
@@ -302,45 +289,52 @@ const categories = [
   "Sports & Recreation",
 ];
 
-const eventMonthIndexes: Record<string, number> = {
-  JAN: 0,
-  FEB: 1,
-  MAR: 2,
-  APR: 3,
-  MAY: 4,
-  JUN: 5,
-  JUL: 6,
-  AUG: 7,
-  SEP: 8,
-  OCT: 9,
-  NOV: 10,
-  DEC: 11,
-};
-
 const weekDays = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
+function getEventSourceUrl(event: CommunityEvent) {
+  return event.sourceUrl?.trim() || initialEvents.find((seed) => seed.id === event.id)?.sourceUrl?.trim();
+}
+
 export default function App() {
-  const [submittedEvents, setSubmittedEvents] = useState<CommunityEvent[]>([]);
   const [databaseEvents, setDatabaseEvents] = useState<CommunityEvent[]>(novemberEvents);
+  const [isRefreshingEvents, setIsRefreshingEvents] = useState(false);
+  const [publicEventsError, setPublicEventsError] = useState<string | null>(null);
+  const publicEventsRequest = useRef<AbortController | null>(null);
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState("All events");
+  const [dateFilter, setDateFilter] = useState<EventDateFilter>("any");
+  const currentDay = new Date().toDateString();
+  const dateRange = useMemo(() => getEventDateRange(dateFilter), [dateFilter, currentDay]);
+  const rangeLastDay = dateRange ? new Date(dateRange.end) : null;
+  rangeLastDay?.setDate(rangeLastDay.getDate() - 1);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState<CommunityEvent | null>(null);
+  const eventDetailsRef = useRef<HTMLDivElement>(null);
   const [submitOpen, setSubmitOpen] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submissionError, setSubmissionError] = useState<string | null>(null);
+  const submissionInFlight = useRef(false);
   const [upload, setUpload] = useState<{ name: string; url: string } | null>(null);
   const [calendarOpen, setCalendarOpen] = useState(false);
+  const [staffReviewOpen, setStaffReviewOpen] = useState(false);
+  const staffReviewReturnFocus = useRef<HTMLElement | null>(null);
+  const mobileMenuButton = useRef<HTMLButtonElement>(null);
   const [visibleMonth, setVisibleMonth] = useState(() => {
     const today = new Date();
     return new Date(today.getFullYear(), today.getMonth(), 1);
   });
   const [connectedCalendar, setConnectedCalendar] = useState<"Google" | "Apple" | null>(null);
-  const events = [...submittedEvents, ...initialEvents, ...databaseEvents];
+  const events = useMemo(
+    () => [...initialEvents, ...databaseEvents].filter((event) => event.status === "approved"),
+    [databaseEvents],
+  );
   const selectedEventSourceUrl = selectedEvent
-    ? initialEvents.find((event) => event.id === selectedEvent.id)?.sourceUrl ?? selectedEvent.sourceUrl
+    ? getEventSourceUrl(selectedEvent)
     : undefined;
+  const selectedEventDate = selectedEvent ? getEventDate(selectedEvent) : null;
 
-  const filteredEvents = useMemo(
+  const matchingEvents = useMemo(
     () =>
       events.filter(
         (event) =>
@@ -349,41 +343,74 @@ export default function App() {
             .toLowerCase()
             .includes(query.toLowerCase()),
       ),
-    [category, query, submittedEvents, databaseEvents],
+    [category, query, events],
   );
 
-  useEffect(() => {
+  const filteredEvents = useMemo(
+    () => matchingEvents.filter((event) => isEventInDateRange(event, dateRange)),
+    [matchingEvents, dateRange],
+  );
+
+  const refreshPublicEvents = useCallback(async () => {
+    publicEventsRequest.current?.abort();
     const controller = new AbortController();
+    publicEventsRequest.current = controller;
+    setIsRefreshingEvents(true);
+    setPublicEventsError(null);
 
-    async function loadEvents() {
-      try {
-        const response = await fetch(
-          `https://${projectId}.supabase.co/functions/v1/make-server-1f1ed1f9/events`,
-          {
-            headers: { Authorization: `Bearer ${publicAnonKey}` },
-            signal: controller.signal,
-          },
-        );
-
-        if (!response.ok) return;
-        const data = await response.json();
-        if (Array.isArray(data.events)) setDatabaseEvents(data.events);
-      } catch (error) {
-        if ((error as Error).name !== "AbortError") {
-          console.error("Unable to load database events", error);
-        }
+    try {
+      const events = await eventsApi.list({ signal: controller.signal });
+      // Preserve the approved fallback when a deployed API predates review metadata.
+      if (events.some((event) => event.status === undefined)) {
+        throw new Error("Events API records are missing review status.");
+      }
+      if (!controller.signal.aborted) setDatabaseEvents(events);
+    } catch {
+      if (!controller.signal.aborted) {
+        setPublicEventsError("We couldn't refresh the calendar. Your current events are still shown.");
+      }
+    } finally {
+      if (publicEventsRequest.current === controller) {
+        publicEventsRequest.current = null;
+        setIsRefreshingEvents(false);
       }
     }
-
-    loadEvents();
-    return () => controller.abort();
   }, []);
 
-  const visibleMonthEvents = filteredEvents.filter(
-    (event) =>
-      (event.year ?? 2026) === visibleMonth.getFullYear() &&
-      eventMonthIndexes[event.month] === visibleMonth.getMonth(),
-  );
+  const handleEventApproved = useCallback((approvedEvent: CommunityEvent) => {
+    if (approvedEvent.status !== "approved") return;
+    setDatabaseEvents((current) => [
+      ...current.filter((event) => event.id !== approvedEvent.id),
+      approvedEvent,
+    ]);
+    void refreshPublicEvents();
+  }, [refreshPublicEvents]);
+
+  useEffect(() => {
+    if (!selectedEvent) return;
+    const previousFocus = document.activeElement;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    eventDetailsRef.current?.querySelector<HTMLButtonElement>(".modal-close")?.focus();
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      if (previousFocus instanceof HTMLElement && previousFocus.isConnected) previousFocus.focus();
+    };
+  }, [selectedEvent]);
+
+  useEffect(() => {
+    void refreshPublicEvents();
+    return () => {
+      const request = publicEventsRequest.current;
+      publicEventsRequest.current = null;
+      request?.abort();
+    };
+  }, [refreshPublicEvents]);
+
+  const visibleMonthEvents = filteredEvents.filter((event) => {
+    const date = getEventDate(event);
+    return date?.getFullYear() === visibleMonth.getFullYear() && date?.getMonth() === visibleMonth.getMonth();
+  });
   const daysInVisibleMonth = new Date(
     visibleMonth.getFullYear(),
     visibleMonth.getMonth() + 1,
@@ -406,6 +433,17 @@ export default function App() {
     year: "numeric",
   });
 
+  function changeDateFilter(value: EventDateFilter) {
+    setDateFilter(value);
+    const range = getEventDateRange(value);
+    if (!range) return;
+    const firstMatch = matchingEvents
+      .map(getEventDate)
+      .filter((date): date is Date => date !== null && date >= range.start && date < range.end)
+      .sort((a, b) => a.getTime() - b.getTime())[0] ?? range.start;
+    setVisibleMonth(new Date(firstMatch.getFullYear(), firstMatch.getMonth(), 1));
+  }
+
   function changeMonth(offset: number) {
     setVisibleMonth(
       (current) => new Date(current.getFullYear(), current.getMonth() + offset, 1),
@@ -415,9 +453,7 @@ export default function App() {
   function addToGoogleCalendar(event: CommunityEvent) {
     const calendarUrl = createGoogleCalendarUrl({
       ...event,
-      sourceUrl:
-        initialEvents.find((initialEvent) => initialEvent.id === event.id)?.sourceUrl ??
-        event.sourceUrl,
+      sourceUrl: getEventSourceUrl(event),
     });
     const calendarWindow = window.open(calendarUrl, "_blank", "noopener,noreferrer");
     if (calendarWindow) calendarWindow.opener = null;
@@ -427,48 +463,95 @@ export default function App() {
     document.querySelector("#events")?.scrollIntoView({ behavior: "smooth" });
   }
 
+  function handleEventDetailsKeyDown(event: React.KeyboardEvent<HTMLDivElement>) {
+    if (event.key === "Escape") {
+      event.preventDefault();
+      event.stopPropagation();
+      setSelectedEvent(null);
+    } else if (event.key === "Tab") {
+      const controls = eventDetailsRef.current?.querySelectorAll<HTMLElement>('button:not([disabled]), a[href]');
+      const first = controls?.[0];
+      const last = controls?.[controls.length - 1];
+      const activeControl = Array.from(controls ?? []).includes(document.activeElement as HTMLElement);
+      if (!activeControl || (event.shiftKey && document.activeElement === first)) {
+        event.preventDefault();
+        (event.shiftKey ? last : first)?.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first?.focus();
+      }
+    }
+  }
+
   function openSubmission() {
+    if (submissionInFlight.current) return;
     setMobileOpen(false);
     setSubmitted(false);
+    setSubmissionError(null);
+    setUpload(null);
     setSubmitOpen(true);
   }
 
-  function submitEvent(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const form = new FormData(event.currentTarget);
-    const eventDate = new Date(`${form.get("date")}T12:00:00`);
-    const startTime = String(form.get("time"));
-    const formattedTime = new Intl.DateTimeFormat("en-US", {
-      hour: "numeric",
-      minute: "2-digit",
-    }).format(new Date(`2025-01-01T${startTime}`));
+  function openStaffReview(event: React.MouseEvent<HTMLButtonElement>) {
+    if (submissionInFlight.current) return;
+    staffReviewReturnFocus.current = mobileOpen ? mobileMenuButton.current : event.currentTarget;
+    setMobileOpen(false);
+    setStaffReviewOpen(true);
+  }
 
-    setSubmittedEvents((current) => [
-      {
-        id: Date.now(),
-        title: String(form.get("title")),
+  function validateRequiredText(event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) {
+    const field = event.currentTarget;
+    field.setCustomValidity(
+      field.value && !field.value.trim() ? "Enter at least one non-space character." : "",
+    );
+  }
+
+  async function submitEvent(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (submissionInFlight.current) return;
+    const formElement = event.currentTarget;
+    if (!formElement.reportValidity()) return;
+    const form = new FormData(formElement);
+    submissionInFlight.current = true;
+    setIsSubmitting(true);
+    setSubmissionError(null);
+
+    try {
+      const eventDate = new Date(`${form.get("date")}T12:00:00`);
+      const startTime = new Date(`2000-01-01T${form.get("time")}`);
+      const formattedTime = new Intl.DateTimeFormat("en-US", {
+        hour: "numeric",
+        minute: "2-digit",
+      }).format(startTime);
+      const sourceUrl = String(form.get("sourceUrl") ?? "").trim();
+
+      await eventsApi.create({
+        title: String(form.get("title")).trim(),
         category: String(form.get("category")),
         year: eventDate.getFullYear(),
-        date: String(eventDate.getDate()).padStart(2, "0"),
         month: eventDate.toLocaleDateString("en-US", { month: "short" }).toUpperCase(),
-        day: eventDate.toLocaleDateString("en-US", {
-          weekday: "long",
-          month: "long",
-          day: "numeric",
-        }),
+        date: String(eventDate.getDate()).padStart(2, "0"),
         time: `${formattedTime} onward`,
-        location: String(form.get("location")),
-        image: upload?.url || images.hero,
-        alt: upload ? `Uploaded image for ${form.get("title")}` : "Downtown Easton event",
-        description: String(form.get("description")),
-      },
-      ...current,
-    ]);
-    setCategory("All events");
-    setQuery("");
-    setSubmitted(true);
-    setUpload(null);
-    event.currentTarget.reset();
+        location: String(form.get("location")).trim(),
+        description: String(form.get("description")).trim(),
+        image: images.hero,
+        alt: "Downtown Easton event",
+        ...(sourceUrl ? { sourceUrl } : {}),
+      });
+
+      formElement.reset();
+      setUpload(null);
+      setSubmitted(true);
+    } catch (error) {
+      setSubmissionError(
+        error instanceof EventsApiError
+          ? error.message
+          : "We couldn't submit your event. Check your connection and try again.",
+      );
+    } finally {
+      submissionInFlight.current = false;
+      setIsSubmitting(false);
+    }
   }
 
   return (
@@ -484,6 +567,16 @@ export default function App() {
           <div className={`nav-links ${mobileOpen ? "is-open" : ""}`}>
             <a href="#events" onClick={() => setMobileOpen(false)}>Find events</a>
             <a href="#discover" onClick={() => setMobileOpen(false)}>Explore Easton</a>
+            <button
+              className="staff-review-button"
+              type="button"
+              aria-haspopup="dialog"
+              aria-controls="staff-review-dialog"
+              aria-expanded={staffReviewOpen}
+              onClick={openStaffReview}
+            >
+              Staff review
+            </button>
             <button
               className="calendar-button"
               type="button"
@@ -503,6 +596,7 @@ export default function App() {
           <button
             className="menu-button"
             type="button"
+            ref={mobileMenuButton}
             aria-label={mobileOpen ? "Close menu" : "Open menu"}
             onClick={() => setMobileOpen(!mobileOpen)}
           >
@@ -539,11 +633,11 @@ export default function App() {
               <span>When?</span>
               <div>
                 <Icon name="calendar" />
-                <select aria-label="Choose a date">
-                  <option>Any date</option>
-                  <option>This weekend</option>
-                  <option>Next week</option>
-                  <option>This month</option>
+                <select aria-label="Choose a date" value={dateFilter} onChange={(event) => changeDateFilter(event.target.value as EventDateFilter)}>
+                  <option value="any">Any date</option>
+                  <option value="weekend">This weekend</option>
+                  <option value="week">Next week</option>
+                  <option value="month">This month</option>
                 </select>
               </div>
             </label>
@@ -582,6 +676,16 @@ export default function App() {
             </div>
           </div>
 
+          {isRefreshingEvents && <p className="calendar-refresh-status" role="status">Updating calendar…</p>}
+          {publicEventsError && (
+            <div className="calendar-refresh-error" role="alert">
+              <p>{publicEventsError}</p>
+              <button className="text-button" type="button" onClick={() => { void refreshPublicEvents(); }}>
+                Retry calendar refresh
+              </button>
+            </div>
+          )}
+
           <div className="category-row" aria-label="Filter by category">
             {categories.map((item) => (
               <button
@@ -594,6 +698,17 @@ export default function App() {
               </button>
             ))}
           </div>
+
+          {dateRange && rangeLastDay && (
+            <div className="date-filter-summary">
+              <p role="status">
+                Showing {dateRange.start.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                {" – "}{rangeLastDay.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}.
+                {filteredEvents.length > visibleMonthEvents.length && <span>Use the month arrows to view matching events in another month.</span>}
+              </p>
+              <button className="text-button" type="button" onClick={() => changeDateFilter("any")}>Clear date filter</button>
+            </div>
+          )}
 
           <div className="month-calendar">
             <div className="calendar-weekdays" aria-hidden="true">
@@ -693,7 +808,9 @@ export default function App() {
             className="event-modal"
             role="dialog"
             aria-modal="true"
-            aria-label={selectedEvent.title}
+            aria-labelledby="event-details-title"
+            ref={eventDetailsRef}
+            onKeyDown={handleEventDetailsKeyDown}
             onMouseDown={(event) => event.stopPropagation()}
           >
             <button className="modal-close" type="button" onClick={() => setSelectedEvent(null)} aria-label="Close">
@@ -702,12 +819,37 @@ export default function App() {
             <img src={selectedEvent.image} alt={selectedEvent.alt} />
             <div className="modal-content">
               <p className="section-kicker">{selectedEvent.category}</p>
-              <h2>{selectedEvent.title}</h2>
-              <div className="modal-meta">
-                <p><Icon name="calendar" /> {selectedEvent.day}</p>
-                <p><Icon name="clock" /> {selectedEvent.time}</p>
-                <p><Icon name="location" /> {selectedEvent.location}</p>
-              </div>
+              <h2 id="event-details-title">{selectedEvent.title}</h2>
+              <dl className="modal-meta">
+                <div>
+                  <dt><Icon name="calendar" /> Date</dt>
+                  <dd>
+                    {selectedEventDate ? (
+                      <time dateTime={`${String(selectedEventDate.getFullYear()).padStart(4, "0")}-${String(selectedEventDate.getMonth() + 1).padStart(2, "0")}-${String(selectedEventDate.getDate()).padStart(2, "0")}`}>
+                        {selectedEventDate.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" })}
+                      </time>
+                    ) : selectedEvent.day || "Date to be confirmed"}
+                  </dd>
+                </div>
+                <div>
+                  <dt><Icon name="clock" /> Time</dt>
+                  <dd>{selectedEvent.time.trim() || "Time to be confirmed"}</dd>
+                </div>
+                <div>
+                  <dt><Icon name="location" /> Venue</dt>
+                  <dd>{selectedEvent.location.trim() || "Venue to be confirmed"}</dd>
+                </div>
+                {selectedEventSourceUrl && (
+                  <div>
+                    <dt>Source</dt>
+                    <dd>
+                      <a className="source-link" href={selectedEventSourceUrl} target="_blank" rel="noopener noreferrer">
+                        Event organizer <Icon name="arrow" />
+                      </a>
+                    </dd>
+                  </div>
+                )}
+              </dl>
               <p className="modal-description">{selectedEvent.description}</p>
               <div className="modal-actions">
                 <button
@@ -717,16 +859,6 @@ export default function App() {
                 >
                   Add to Google Calendar <Icon name="arrow" />
                 </button>
-                {selectedEventSourceUrl && (
-                  <a
-                    className="source-link"
-                    href={selectedEventSourceUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                  >
-                    Event organizer <Icon name="arrow" />
-                  </a>
-                )}
               </div>
             </div>
           </div>
@@ -740,19 +872,20 @@ export default function App() {
               className="modal-close"
               type="button"
               onClick={() => setSubmitOpen(false)}
+              disabled={isSubmitting}
               aria-label="Close event submission"
             >
               <Icon name="x" />
             </button>
 
             {submitted ? (
-              <div className="submission-success">
+              <div className="submission-success" role="status" aria-live="polite">
                 <span className="success-icon"><Icon name="spark" /></span>
-                <p className="section-kicker">Submission received</p>
-                <h2>Thanks for adding to Easton.</h2>
+                <p className="section-kicker">Submission saved</p>
+                <h2>Awaiting review.</h2>
                 <p>
-                  Your event has been added to the calendar preview. A community calendar
-                  administrator would review it before publishing.
+                  Your event has been saved for staff review. It will stay off the
+                  public calendar until a staff member approves it.
                 </p>
                 <div className="success-actions">
                   <button
@@ -771,81 +904,109 @@ export default function App() {
                 </div>
               </div>
             ) : (
-              <form className="submission-form" onSubmit={submitEvent}>
+              <form className="submission-form" onSubmit={submitEvent} aria-busy={isSubmitting}>
                 <div className="form-intro">
                   <p className="section-kicker">Share what’s happening</p>
                   <h2>Submit an event</h2>
                   <p>Tell us the essentials. All submissions are reviewed before going live.</p>
                 </div>
 
-                <div className="form-grid">
-                  <label className="form-field full-field">
-                    <span>Event name</span>
-                    <input name="title" required placeholder="e.g. Riverside movie night" />
-                  </label>
+                <fieldset className="submission-fields" disabled={isSubmitting}>
+                  <div className="form-grid">
+                    <label className="form-field full-field">
+                      <span>Event name</span>
+                      <input name="title" required onChange={validateRequiredText} placeholder="e.g. Riverside movie night" />
+                    </label>
 
-                  <label className="form-field">
-                    <span>Category</span>
-                    <select name="category" required defaultValue="">
-                      <option value="" disabled>Choose a category</option>
-                      {categories.slice(1).map((item) => <option key={item}>{item}</option>)}
-                    </select>
-                  </label>
+                    <label className="form-field">
+                      <span>Category</span>
+                      <select name="category" required defaultValue="">
+                        <option value="" disabled>Choose a category</option>
+                        {categories.slice(1).map((item) => <option key={item}>{item}</option>)}
+                      </select>
+                    </label>
 
-                  <label className="form-field">
-                    <span>Venue or location</span>
-                    <input name="location" required placeholder="Where is it happening?" />
-                  </label>
+                    <label className="form-field">
+                      <span>Venue or location</span>
+                      <input name="location" required onChange={validateRequiredText} placeholder="Where is it happening?" />
+                    </label>
 
-                  <label className="form-field">
-                    <span>Date</span>
-                    <input name="date" type="date" required />
-                  </label>
+                    <label className="form-field">
+                      <span>Date</span>
+                      <input name="date" type="date" required />
+                    </label>
 
-                  <label className="form-field">
-                    <span>Start time</span>
-                    <input name="time" type="time" required />
-                  </label>
+                    <label className="form-field">
+                      <span>Start time</span>
+                      <input name="time" type="time" required />
+                    </label>
 
-                  <label className="form-field full-field">
-                    <span>Description</span>
-                    <textarea
-                      name="description"
-                      required
-                      rows={4}
-                      placeholder="What should people know about your event?"
-                    />
-                  </label>
+                    <label className="form-field full-field">
+                      <span>Description</span>
+                      <textarea
+                        name="description"
+                        required
+                        onChange={validateRequiredText}
+                        rows={4}
+                        placeholder="What should people know about your event?"
+                      />
+                    </label>
 
-                  <label className="upload-field full-field">
-                    <input
-                      name="image"
-                      type="file"
-                      accept="image/*"
-                      onChange={(event) => {
-                        const file = event.target.files?.[0];
-                        if (file) setUpload({ name: file.name, url: URL.createObjectURL(file) });
-                      }}
-                    />
-                    <span className="upload-icon"><Icon name="ticket" /></span>
-                    <span>
-                      <strong>{upload ? upload.name : "Add an event image"}</strong>
-                      <small>{upload ? "Image ready to upload" : "PNG or JPG, up to 10 MB"}</small>
-                    </span>
-                    <span className="upload-action">{upload ? "Change" : "Browse"}</span>
-                  </label>
-                </div>
+                    <label className="form-field full-field">
+                      <span>Source / organizer link (optional)</span>
+                      <input
+                        name="sourceUrl"
+                        type="url"
+                        pattern="https?://.+"
+                        placeholder="https://example.com/event"
+                        title="Enter a full link starting with http:// or https://."
+                      />
+                    </label>
 
-                <div className="form-footer">
-                  <p>By submitting, you confirm that these event details are accurate.</p>
-                  <button className="primary-button" type="submit">
-                    Submit event <Icon name="arrow" />
-                  </button>
-                </div>
+                    <label className="upload-field full-field">
+                      <input
+                        name="image"
+                        type="file"
+                        accept="image/*"
+                        onChange={(event) => {
+                          const file = event.target.files?.[0];
+                          if (file) setUpload({ name: file.name, url: URL.createObjectURL(file) });
+                        }}
+                      />
+                      <span className="upload-icon"><Icon name="ticket" /></span>
+                      <span>
+                        <strong>{upload ? upload.name : "Add an image preview"}</strong>
+                        <small>Preview only. Images are not saved with your submission.</small>
+                      </span>
+                      <span className="upload-action">{upload ? "Change" : "Browse"}</span>
+                    </label>
+                  </div>
+
+                  {submissionError && (
+                    <p className="submission-error" role="alert">
+                      {submissionError} Your details have been kept so you can try again.
+                    </p>
+                  )}
+
+                  <div className="form-footer">
+                    <p>By submitting, you confirm that these event details are accurate.</p>
+                    <button className="primary-button" type="submit" disabled={isSubmitting}>
+                      {isSubmitting ? "Submitting…" : "Submit event"} <Icon name="arrow" />
+                    </button>
+                  </div>
+                </fieldset>
               </form>
             )}
           </div>
         </div>
+      )}
+
+      {staffReviewOpen && (
+        <StaffReviewModal
+          onClose={() => setStaffReviewOpen(false)}
+          returnFocusTo={staffReviewReturnFocus.current}
+          onApproved={handleEventApproved}
+        />
       )}
 
       {calendarOpen && (
