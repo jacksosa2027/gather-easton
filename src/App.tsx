@@ -291,6 +291,10 @@ const categories = [
 
 const weekDays = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
+function getEventSourceUrl(event: CommunityEvent) {
+  return event.sourceUrl?.trim() || initialEvents.find((seed) => seed.id === event.id)?.sourceUrl?.trim();
+}
+
 export default function App() {
   const [databaseEvents, setDatabaseEvents] = useState<CommunityEvent[]>(novemberEvents);
   const [isRefreshingEvents, setIsRefreshingEvents] = useState(false);
@@ -325,8 +329,9 @@ export default function App() {
     [databaseEvents],
   );
   const selectedEventSourceUrl = selectedEvent
-    ? initialEvents.find((event) => event.id === selectedEvent.id)?.sourceUrl ?? selectedEvent.sourceUrl
+    ? getEventSourceUrl(selectedEvent)
     : undefined;
+  const selectedEventDate = selectedEvent ? getEventDate(selectedEvent) : null;
 
   const matchingEvents = useMemo(
     () =>
@@ -431,9 +436,7 @@ export default function App() {
   function addToGoogleCalendar(event: CommunityEvent) {
     const calendarUrl = createGoogleCalendarUrl({
       ...event,
-      sourceUrl:
-        initialEvents.find((initialEvent) => initialEvent.id === event.id)?.sourceUrl ??
-        event.sourceUrl,
+      sourceUrl: getEventSourceUrl(event),
     });
     const calendarWindow = window.open(calendarUrl, "_blank", "noopener,noreferrer");
     if (calendarWindow) calendarWindow.opener = null;
@@ -761,7 +764,7 @@ export default function App() {
             className="event-modal"
             role="dialog"
             aria-modal="true"
-            aria-label={selectedEvent.title}
+            aria-labelledby="event-details-title"
             onMouseDown={(event) => event.stopPropagation()}
           >
             <button className="modal-close" type="button" onClick={() => setSelectedEvent(null)} aria-label="Close">
@@ -770,12 +773,37 @@ export default function App() {
             <img src={selectedEvent.image} alt={selectedEvent.alt} />
             <div className="modal-content">
               <p className="section-kicker">{selectedEvent.category}</p>
-              <h2>{selectedEvent.title}</h2>
-              <div className="modal-meta">
-                <p><Icon name="calendar" /> {selectedEvent.day}</p>
-                <p><Icon name="clock" /> {selectedEvent.time}</p>
-                <p><Icon name="location" /> {selectedEvent.location}</p>
-              </div>
+              <h2 id="event-details-title">{selectedEvent.title}</h2>
+              <dl className="modal-meta">
+                <div>
+                  <dt><Icon name="calendar" /> Date</dt>
+                  <dd>
+                    {selectedEventDate ? (
+                      <time dateTime={`${String(selectedEventDate.getFullYear()).padStart(4, "0")}-${String(selectedEventDate.getMonth() + 1).padStart(2, "0")}-${String(selectedEventDate.getDate()).padStart(2, "0")}`}>
+                        {selectedEventDate.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" })}
+                      </time>
+                    ) : selectedEvent.day || "Date to be confirmed"}
+                  </dd>
+                </div>
+                <div>
+                  <dt><Icon name="clock" /> Time</dt>
+                  <dd>{selectedEvent.time.trim() || "Time to be confirmed"}</dd>
+                </div>
+                <div>
+                  <dt><Icon name="location" /> Venue</dt>
+                  <dd>{selectedEvent.location.trim() || "Venue to be confirmed"}</dd>
+                </div>
+                {selectedEventSourceUrl && (
+                  <div>
+                    <dt>Source</dt>
+                    <dd>
+                      <a className="source-link" href={selectedEventSourceUrl} target="_blank" rel="noopener noreferrer">
+                        Event organizer <Icon name="arrow" />
+                      </a>
+                    </dd>
+                  </div>
+                )}
+              </dl>
               <p className="modal-description">{selectedEvent.description}</p>
               <div className="modal-actions">
                 <button
@@ -785,16 +813,6 @@ export default function App() {
                 >
                   Add to Google Calendar <Icon name="arrow" />
                 </button>
-                {selectedEventSourceUrl && (
-                  <a
-                    className="source-link"
-                    href={selectedEventSourceUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                  >
-                    Event organizer <Icon name="arrow" />
-                  </a>
-                )}
               </div>
             </div>
           </div>

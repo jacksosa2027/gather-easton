@@ -245,10 +245,12 @@ footer { background: var(--cream); padding: 38px 0; }
 .event-modal > img { width: 100%; height: 100%; min-height: 480px; object-fit: cover; }
 .modal-close { position: absolute; right: 14px; top: 14px; z-index: 1; width: 38px; height: 38px; border-radius: 50%; border: 0; display: grid; place-items: center; background: var(--paper); color: var(--ink); }
 .modal-close .icon { width: 17px; height: 17px; }
-.modal-content { padding: 62px 42px 42px; }
-.modal-content h2 { font-size: 44px; line-height: 1; }
+.modal-content { padding: 62px 42px 42px; min-width: 0; }
+.modal-content h2 { font-size: 44px; line-height: 1; overflow-wrap: anywhere; }
 .modal-meta { margin: 24px 0; padding: 15px 0; border-block: 1px solid var(--line); }
-.modal-meta p { display: flex; gap: 9px; align-items: center; margin: 9px 0; font-size: 13px; color: var(--muted); }
+.modal-meta > div { display: grid; grid-template-columns: 74px minmax(0, 1fr); align-items: start; gap: 12px; margin: 14px 0; }
+.modal-meta dt { display: flex; gap: 8px; align-items: center; color: var(--green); font-size: 12px; font-weight: 700; }
+.modal-meta dd { margin: 0; color: var(--muted); font-size: 13px; line-height: 1.5; overflow-wrap: anywhere; }
 .modal-meta .icon { width: 17px; height: 17px; color: var(--green); }
 .modal-description { color: var(--muted); line-height: 1.65; margin-bottom: 25px; }
 .modal-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 18px; }
