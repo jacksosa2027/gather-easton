@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react"
+import useStaffAccess from "../hooks/useStaffAccess"
 
 type StaffReviewModalProps = {
   onClose: () => void
@@ -10,6 +11,10 @@ export default function StaffReviewModal({
   returnFocusTo,
 }: StaffReviewModalProps) {
   const dialogRef = useRef<HTMLDivElement>(null)
+  const pinRef = useRef<HTMLInputElement>(null)
+  const accessHeadingRef = useRef<HTMLHeadingElement>(null)
+  const { pin, setPin, staffPin, isChecking, error, remembered, unlock, lock } =
+    useStaffAccess()
 
   useEffect(() => {
     const previousFocus = returnFocusTo ?? document.activeElement
@@ -23,6 +28,17 @@ export default function StaffReviewModal({
         previousFocus.focus()
     }
   }, [returnFocusTo])
+
+  useEffect(() => {
+    if (isChecking) {
+      dialogRef.current
+        ?.querySelector<HTMLButtonElement>(".modal-close")
+        ?.focus()
+    } else {
+      if (staffPin) accessHeadingRef.current?.focus()
+      else pinRef.current?.focus()
+    }
+  }, [staffPin, isChecking])
 
   function handleKeyDown(event: React.KeyboardEvent<HTMLDivElement>) {
     if (event.key === "Escape") {
@@ -92,10 +108,79 @@ export default function StaffReviewModal({
           </p>
         </header>
         <section className="staff-review-body" aria-label="Staff access">
-          <h3>Staff access required</h3>
-          <p>
-            Pending submissions are available only to authorized calendar staff.
-          </p>
+          {staffPin ? (
+            <>
+              <div role="status" aria-live="polite">
+                <h3 ref={accessHeadingRef} tabIndex={-1}>
+                  Staff access unlocked
+                </h3>
+                <p>
+                  {remembered
+                    ? "Access is remembered in this tab. Lock staff review when you're finished."
+                    : "Access is unlocked. Your browser could not remember the PIN, so you'll need to enter it again when you reopen staff review."}
+                </p>
+              </div>
+              <button
+                className="text-button staff-lock-button"
+                type="button"
+                onClick={lock}
+              >
+                Lock staff review
+              </button>
+            </>
+          ) : (
+            <>
+              <h3>Unlock staff review</h3>
+              <p id="staff-pin-help">
+                Enter the shared staff PIN to continue. Access is remembered for
+                this tab.
+              </p>
+              <form
+                className="staff-pin-form"
+                aria-busy={isChecking}
+                onSubmit={(event) => {
+                  event.preventDefault()
+                  if (event.currentTarget.reportValidity()) void unlock(pin)
+                }}
+              >
+                <label className="form-field">
+                  <span>Staff PIN</span>
+                  <input
+                    id="staff-pin"
+                    name="staffPin"
+                    type="password"
+                    autoComplete="current-password"
+                    required
+                    value={pin}
+                    onChange={(event) => setPin(event.target.value)}
+                    disabled={isChecking}
+                    aria-describedby={
+                      error
+                        ? "staff-pin-help staff-pin-error"
+                        : "staff-pin-help"
+                    }
+                    ref={pinRef}
+                  />
+                </label>
+                {error && (
+                  <p
+                    className="staff-pin-error"
+                    id="staff-pin-error"
+                    role="alert"
+                  >
+                    {error}
+                  </p>
+                )}
+                <button
+                  className="primary-button"
+                  type="submit"
+                  disabled={isChecking}
+                >
+                  {isChecking ? "Checking PIN…" : "Unlock staff review"}
+                </button>
+              </form>
+            </>
+          )}
         </section>
       </div>
     </div>

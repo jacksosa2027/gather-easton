@@ -43,6 +43,10 @@ An unset or blank `STAFF_PIN` returns `503` with
 `{ "error": "Staff access is not configured" }`.
 Public event reads and the health endpoint do not require the staff PIN.
 
+Open **Staff review** in the navigation to enter the PIN. Successful PIN checks
+are remembered in `sessionStorage` for the current tab and verified again when
+the panel reopens. **Lock staff review** clears the remembered PIN.
+
 ## Event submission API
 
 `POST /make-server-1f1ed1f9/events` accepts a JSON event object without a staff PIN.

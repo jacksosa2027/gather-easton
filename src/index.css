@@ -289,6 +289,11 @@ footer { background: var(--cream); padding: 38px 0; }
 .staff-review-heading > p:last-child, .staff-review-body p { color: var(--muted); line-height: 1.6; margin: 14px 0 0; }
 .staff-review-body { border: 1px solid var(--line); border-radius: 10px; padding: 24px; margin-top: 28px; background: var(--white); }
 .staff-review-body h3 { margin: 0; font-size: 16px; }
+.staff-pin-form { display: grid; gap: 18px; margin-top: 24px; }
+.staff-pin-form .primary-button { justify-self: start; }
+.staff-pin-form .primary-button:disabled { opacity: .65; cursor: wait; }
+.staff-review-body .staff-pin-error { margin: 0; color: #9b3025; font-size: 13px; }
+.staff-lock-button { margin-top: 24px; }
 
 .submit-modal {
   width: min(850px, 100%);
@@ -486,6 +491,7 @@ footer { background: var(--cream); padding: 38px 0; }
   .staff-review-modal { padding: 46px 24px 30px; }
   .staff-review-heading h2 { font-size: 39px; }
   .staff-review-body { padding: 20px; }
+  .staff-pin-form .primary-button { width: 100%; }
   .event-calendar-heading { padding: 42px 24px 24px; }
   .event-calendar-heading h2 { font-size: 39px; }
   .event-calendar-list { padding: 8px 14px 22px; }
