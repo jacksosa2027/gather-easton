@@ -309,6 +309,7 @@ export default function App() {
   rangeLastDay?.setDate(rangeLastDay.getDate() - 1);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState<CommunityEvent | null>(null);
+  const eventDetailsRef = useRef<HTMLDivElement>(null);
   const [submitOpen, setSubmitOpen] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -359,6 +360,10 @@ export default function App() {
 
     try {
       const events = await eventsApi.list({ signal: controller.signal });
+      // Preserve the approved fallback when a deployed API predates review metadata.
+      if (events.some((event) => event.status === undefined)) {
+        throw new Error("Events API records are missing review status.");
+      }
       if (!controller.signal.aborted) setDatabaseEvents(events);
     } catch {
       if (!controller.signal.aborted) {
@@ -380,6 +385,18 @@ export default function App() {
     ]);
     void refreshPublicEvents();
   }, [refreshPublicEvents]);
+
+  useEffect(() => {
+    if (!selectedEvent) return;
+    const previousFocus = document.activeElement;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    eventDetailsRef.current?.querySelector<HTMLButtonElement>(".modal-close")?.focus();
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      if (previousFocus instanceof HTMLElement && previousFocus.isConnected) previousFocus.focus();
+    };
+  }, [selectedEvent]);
 
   useEffect(() => {
     void refreshPublicEvents();
@@ -444,6 +461,26 @@ export default function App() {
 
   function scrollToEvents() {
     document.querySelector("#events")?.scrollIntoView({ behavior: "smooth" });
+  }
+
+  function handleEventDetailsKeyDown(event: React.KeyboardEvent<HTMLDivElement>) {
+    if (event.key === "Escape") {
+      event.preventDefault();
+      event.stopPropagation();
+      setSelectedEvent(null);
+    } else if (event.key === "Tab") {
+      const controls = eventDetailsRef.current?.querySelectorAll<HTMLElement>('button:not([disabled]), a[href]');
+      const first = controls?.[0];
+      const last = controls?.[controls.length - 1];
+      const activeControl = Array.from(controls ?? []).includes(document.activeElement as HTMLElement);
+      if (!activeControl || (event.shiftKey && document.activeElement === first)) {
+        event.preventDefault();
+        (event.shiftKey ? last : first)?.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first?.focus();
+      }
+    }
   }
 
   function openSubmission() {
@@ -765,6 +802,8 @@ export default function App() {
             role="dialog"
             aria-modal="true"
             aria-labelledby="event-details-title"
+            ref={eventDetailsRef}
+            onKeyDown={handleEventDetailsKeyDown}
             onMouseDown={(event) => event.stopPropagation()}
           >
             <button className="modal-close" type="button" onClick={() => setSelectedEvent(null)} aria-label="Close">

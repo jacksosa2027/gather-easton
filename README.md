@@ -138,6 +138,10 @@ TZ=America/New_York node --experimental-strip-types --test src/utils/eventDateFi
 
 These checks cover frontend types/build and submission/date validation. The deployed Supabase configuration, real KV persistence, and browser demo still need the live walkthrough above.
 
+### Browser verification progress
+
+Calendar browsing, category/search filters, and event details passed local Chromium checks on desktop and mobile, with tablet navigation also checked. The run fixed details-modal focus/Escape handling and legacy-response fallback behavior. The hosted API returned 51 events without `status`, so live API-backed browsing still needs verification after the function deployment is updated. See the [November 7 verification report](docs/verification/sprint3-browse.md) for coverage and remaining prerequisites.
+
 ## Event submission API
 
 `POST /make-server-1f1ed1f9/events` accepts a JSON event object without a staff PIN.
