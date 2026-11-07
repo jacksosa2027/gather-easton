@@ -1,8 +1,8 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { CommunityEvent } from "../supabase/functions/_shared/events";
 import { novemberEvents } from "./data/novemberEvents";
 import { createGoogleCalendarUrl } from "./utils/googleCalendar";
-import { eventsApi } from "./utils/eventsApi";
+import { EventsApiError, eventsApi } from "./utils/eventsApi";
 
 const images = {
   hero: "https://images.unsplash.com/photo-1731094114672-f6f446490ebb?crop=entropy&cs=tinysrgb&fit=crop&fm=jpg&q=85&w=1800",
@@ -312,6 +312,9 @@ export default function App() {
   const [selectedEvent, setSelectedEvent] = useState<CommunityEvent | null>(null);
   const [submitOpen, setSubmitOpen] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submissionError, setSubmissionError] = useState<string | null>(null);
+  const submissionInFlight = useRef(false);
   const [upload, setUpload] = useState<{ name: string; url: string } | null>(null);
   const [calendarOpen, setCalendarOpen] = useState(false);
   const [visibleMonth, setVisibleMonth] = useState(() => {
@@ -406,16 +409,60 @@ export default function App() {
   }
 
   function openSubmission() {
+    if (submissionInFlight.current) return;
     setMobileOpen(false);
     setSubmitted(false);
+    setSubmissionError(null);
+    setUpload(null);
     setSubmitOpen(true);
   }
 
-  function submitEvent(event: React.FormEvent<HTMLFormElement>) {
+  async function submitEvent(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    setSubmitted(true);
-    setUpload(null);
-    event.currentTarget.reset();
+    if (submissionInFlight.current) return;
+    const formElement = event.currentTarget;
+    if (!formElement.reportValidity()) return;
+    const form = new FormData(formElement);
+    submissionInFlight.current = true;
+    setIsSubmitting(true);
+    setSubmissionError(null);
+
+    try {
+      const eventDate = new Date(`${form.get("date")}T12:00:00`);
+      const startTime = new Date(`2000-01-01T${form.get("time")}`);
+      const formattedTime = new Intl.DateTimeFormat("en-US", {
+        hour: "numeric",
+        minute: "2-digit",
+      }).format(startTime);
+      const sourceUrl = String(form.get("sourceUrl") ?? "").trim();
+
+      await eventsApi.create({
+        title: String(form.get("title")).trim(),
+        category: String(form.get("category")),
+        year: eventDate.getFullYear(),
+        month: eventDate.toLocaleDateString("en-US", { month: "short" }).toUpperCase(),
+        date: String(eventDate.getDate()).padStart(2, "0"),
+        time: `${formattedTime} onward`,
+        location: String(form.get("location")).trim(),
+        description: String(form.get("description")).trim(),
+        image: images.hero,
+        alt: "Downtown Easton event",
+        ...(sourceUrl ? { sourceUrl } : {}),
+      });
+
+      formElement.reset();
+      setUpload(null);
+      setSubmitted(true);
+    } catch (error) {
+      setSubmissionError(
+        error instanceof EventsApiError
+          ? error.message
+          : "We couldn't submit your event. Check your connection and try again.",
+      );
+    } finally {
+      submissionInFlight.current = false;
+      setIsSubmitting(false);
+    }
   }
 
   return (
@@ -687,6 +734,7 @@ export default function App() {
               className="modal-close"
               type="button"
               onClick={() => setSubmitOpen(false)}
+              disabled={isSubmitting}
               aria-label="Close event submission"
             >
               <Icon name="x" />
@@ -695,11 +743,11 @@ export default function App() {
             {submitted ? (
               <div className="submission-success">
                 <span className="success-icon"><Icon name="spark" /></span>
-                <p className="section-kicker">Submission preview</p>
-                <h2>Thanks for trying the form.</h2>
+                <p className="section-kicker">Submission received</p>
+                <h2>Thanks for sharing your event.</h2>
                 <p>
-                  This preview does not save your event yet. Events will appear on the
-                  public calendar after staff review.
+                  Your event has been saved and is awaiting staff review. It will appear
+                  on the public calendar after approval.
                 </p>
                 <div className="success-actions">
                   <button
@@ -718,88 +766,96 @@ export default function App() {
                 </div>
               </div>
             ) : (
-              <form className="submission-form" onSubmit={submitEvent}>
+              <form className="submission-form" onSubmit={submitEvent} aria-busy={isSubmitting}>
                 <div className="form-intro">
                   <p className="section-kicker">Share what’s happening</p>
                   <h2>Submit an event</h2>
                   <p>Tell us the essentials. All submissions are reviewed before going live.</p>
                 </div>
 
-                <div className="form-grid">
-                  <label className="form-field full-field">
-                    <span>Event name</span>
-                    <input name="title" required placeholder="e.g. Riverside movie night" />
-                  </label>
+                <fieldset className="submission-fields" disabled={isSubmitting}>
+                  <div className="form-grid">
+                    <label className="form-field full-field">
+                      <span>Event name</span>
+                      <input name="title" required placeholder="e.g. Riverside movie night" />
+                    </label>
 
-                  <label className="form-field">
-                    <span>Category</span>
-                    <select name="category" required defaultValue="">
-                      <option value="" disabled>Choose a category</option>
-                      {categories.slice(1).map((item) => <option key={item}>{item}</option>)}
-                    </select>
-                  </label>
+                    <label className="form-field">
+                      <span>Category</span>
+                      <select name="category" required defaultValue="">
+                        <option value="" disabled>Choose a category</option>
+                        {categories.slice(1).map((item) => <option key={item}>{item}</option>)}
+                      </select>
+                    </label>
 
-                  <label className="form-field">
-                    <span>Venue or location</span>
-                    <input name="location" required placeholder="Where is it happening?" />
-                  </label>
+                    <label className="form-field">
+                      <span>Venue or location</span>
+                      <input name="location" required placeholder="Where is it happening?" />
+                    </label>
 
-                  <label className="form-field">
-                    <span>Date</span>
-                    <input name="date" type="date" required />
-                  </label>
+                    <label className="form-field">
+                      <span>Date</span>
+                      <input name="date" type="date" required />
+                    </label>
 
-                  <label className="form-field">
-                    <span>Start time</span>
-                    <input name="time" type="time" required />
-                  </label>
+                    <label className="form-field">
+                      <span>Start time</span>
+                      <input name="time" type="time" required />
+                    </label>
 
-                  <label className="form-field full-field">
-                    <span>Description</span>
-                    <textarea
-                      name="description"
-                      required
-                      rows={4}
-                      placeholder="What should people know about your event?"
-                    />
-                  </label>
+                    <label className="form-field full-field">
+                      <span>Description</span>
+                      <textarea
+                        name="description"
+                        required
+                        rows={4}
+                        placeholder="What should people know about your event?"
+                      />
+                    </label>
 
-                  <label className="form-field full-field">
-                    <span>Source / organizer link (optional)</span>
-                    <input
-                      name="sourceUrl"
-                      type="url"
-                      pattern="https?://.+"
-                      placeholder="https://example.com/event"
-                      title="Enter a full link starting with http:// or https://."
-                    />
-                  </label>
+                    <label className="form-field full-field">
+                      <span>Source / organizer link (optional)</span>
+                      <input
+                        name="sourceUrl"
+                        type="url"
+                        pattern="https?://.+"
+                        placeholder="https://example.com/event"
+                        title="Enter a full link starting with http:// or https://."
+                      />
+                    </label>
 
-                  <label className="upload-field full-field">
-                    <input
-                      name="image"
-                      type="file"
-                      accept="image/*"
-                      onChange={(event) => {
-                        const file = event.target.files?.[0];
-                        if (file) setUpload({ name: file.name, url: URL.createObjectURL(file) });
-                      }}
-                    />
-                    <span className="upload-icon"><Icon name="ticket" /></span>
-                    <span>
-                      <strong>{upload ? upload.name : "Add an event image"}</strong>
-                      <small>{upload ? "Image ready to upload" : "PNG or JPG, up to 10 MB"}</small>
-                    </span>
-                    <span className="upload-action">{upload ? "Change" : "Browse"}</span>
-                  </label>
-                </div>
+                    <label className="upload-field full-field">
+                      <input
+                        name="image"
+                        type="file"
+                        accept="image/*"
+                        onChange={(event) => {
+                          const file = event.target.files?.[0];
+                          if (file) setUpload({ name: file.name, url: URL.createObjectURL(file) });
+                        }}
+                      />
+                      <span className="upload-icon"><Icon name="ticket" /></span>
+                      <span>
+                        <strong>{upload ? upload.name : "Add an image preview"}</strong>
+                        <small>Preview only. Images are not saved with your submission.</small>
+                      </span>
+                      <span className="upload-action">{upload ? "Change" : "Browse"}</span>
+                    </label>
+                  </div>
 
-                <div className="form-footer">
-                  <p>By submitting, you confirm that these event details are accurate.</p>
-                  <button className="primary-button" type="submit">
-                    Submit event <Icon name="arrow" />
-                  </button>
-                </div>
+                  {submissionError && (
+                    <p className="submission-error" role="alert">
+                      {submissionError} Your details have been kept so you can try again.
+                    </p>
+                  )}
+
+                  <div className="form-footer">
+                    <p>By submitting, you confirm that these event details are accurate.</p>
+                    <button className="primary-button" type="submit" disabled={isSubmitting}>
+                      {isSubmitting ? "Submitting…" : "Submit event"} <Icon name="arrow" />
+                    </button>
+                  </div>
+                </fieldset>
               </form>
             )}
           </div>
