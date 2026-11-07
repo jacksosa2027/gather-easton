@@ -4,6 +4,8 @@ import { logger } from "npm:hono/logger";
 import type { CommunityEvent } from "../_shared/events.ts";
 import * as kv from "./kv_store.tsx";
 const app = new Hono();
+// Re-seed existing KV records so legacy seeds receive approved status.
+const SEED_VERSION = 4;
 
 const seedEvents: CommunityEvent[] = [
   {
@@ -746,15 +748,16 @@ app.get("/make-server-1f1ed1f9/events", async (c) => {
   try {
     const seedVersion = await kv.get("events:seed-version");
 
-    if (seedVersion !== 3) {
+    if (seedVersion !== SEED_VERSION) {
       await kv.mset(
         seedEvents.map((event) => `event:seed:${event.id}`),
         seedEvents,
       );
-      await kv.set("events:seed-version", 3);
+      await kv.set("events:seed-version", SEED_VERSION);
     }
 
-    const events = await kv.getByPrefix("event:");
+    const storedEvents: CommunityEvent[] = await kv.getByPrefix("event:");
+    const events = storedEvents.filter((event) => event.status === "approved");
     events.sort(
       (a, b) =>
         new Date(`${a.year}-${String(eventMonthNumber(a.month)).padStart(2, "0")}-${a.date}`).getTime() -
