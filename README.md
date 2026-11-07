@@ -42,3 +42,18 @@ Missing or incorrect PINs return `401` with `{ "error": "Unauthorized" }`.
 An unset or blank `STAFF_PIN` returns `503` with
 `{ "error": "Staff access is not configured" }`.
 Public event reads and the health endpoint do not require the staff PIN.
+
+## Event submission API
+
+`POST /make-server-1f1ed1f9/events` accepts a JSON event object without a staff PIN.
+Required fields are `title`, `category`, `year` (integer), `month` (e.g. `NOV`),
+`date` (day of month, e.g. `07`), `time`, `location`, and `description`.
+Optional fields are `sourceUrl`, `image`, and `alt`; URLs must use HTTP or HTTPS.
+Omit browser-only image preview URLs (`blob:`) from submissions.
+
+A successful write returns `201` with `{ "event": { ... } }`. The server assigns
+the numeric `id`, `status: "pending"`, and ISO `submittedAt`, and derives `day`
+from the calendar date. Client-provided IDs and review metadata are ignored.
+Records are saved under `event:submission:{id}` and remain excluded from
+`GET /events` until approved. Invalid submissions return `400`; failed KV writes
+return `500` without reporting success.

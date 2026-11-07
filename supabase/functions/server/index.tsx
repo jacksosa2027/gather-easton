@@ -4,6 +4,7 @@ import { logger } from "npm:hono/logger";
 import type { CommunityEvent } from "../_shared/events.ts";
 import * as kv from "./kv_store.tsx";
 import { requireStaffPin } from "./staff_auth.ts";
+import { EventSubmissionError, parseEventSubmission } from "./event_submission.ts";
 const app = new Hono();
 // Re-seed existing KV records so legacy seeds receive approved status.
 const SEED_VERSION = 4;
@@ -774,6 +775,36 @@ app.get("/make-server-1f1ed1f9/events", async (c) => {
   } catch (error) {
     console.log(`Failed to load events: ${error}`);
     return c.json({ error: "Unable to load events" }, 500);
+  }
+});
+
+app.post("/make-server-1f1ed1f9/events", async (c) => {
+  try {
+    let input: unknown;
+    try {
+      input = await c.req.json();
+    } catch {
+      return c.json({ error: "Invalid JSON request body" }, 400);
+    }
+
+    const details = parseEventSubmission(input);
+    // Use 53 random bits to preserve the shared model's safe-integer numeric IDs.
+    const random = crypto.getRandomValues(new Uint32Array(2));
+    const event: CommunityEvent = {
+      ...details,
+      id: random[0] * 2 ** 21 + (random[1] >>> 11),
+      status: "pending",
+      submittedAt: new Date().toISOString(),
+    };
+
+    await kv.set(`event:submission:${event.id}`, event);
+    return c.json({ event }, 201);
+  } catch (error) {
+    if (error instanceof EventSubmissionError) {
+      return c.json({ error: error.message }, 400);
+    }
+    console.log(`Failed to submit event: ${error}`);
+    return c.json({ error: "Unable to submit event" }, 500);
   }
 });
 
