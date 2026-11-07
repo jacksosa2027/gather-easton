@@ -144,6 +144,8 @@ Calendar browsing, category/search filters, and event details passed local Chrom
 
 The submit/refresh flow also passed in desktop/mobile Chromium using the current function source with isolated persistent test storage: pending records survived reload and stayed out of the public API and calendar. The hosted submission attempt returned `404`, so live persistence/privacy verification remains blocked. See the [submission verification report](docs/verification/sprint3-submission.md).
 
+Staff PIN unlock and approval passed with the same isolated setup: approved records became public without page navigation and remained visible in a fresh browser context without a staff PIN. The hosted staff queue also returned `404`; no live approval was attempted. See the [approval verification report](docs/verification/sprint3-approval.md).
+
 ## Event submission API
 
 `POST /make-server-1f1ed1f9/events` accepts a JSON event object without a staff PIN.
