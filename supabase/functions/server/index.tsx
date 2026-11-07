@@ -1,4 +1,4 @@
-import { Hono } from "npm:hono";
+import { Hono, type Handler } from "npm:hono";
 import { cors } from "npm:hono/cors";
 import { logger } from "npm:hono/logger";
 import type { CommunityEvent } from "../_shared/events.ts";
@@ -807,6 +807,76 @@ app.post("/make-server-1f1ed1f9/events", async (c) => {
     return c.json({ error: "Unable to submit event" }, 500);
   }
 });
+
+app.get("/make-server-1f1ed1f9/events/pending", async (c) => {
+  try {
+    const submissions: CommunityEvent[] = await kv.getByPrefix("event:submission:");
+    const events = submissions
+      .filter((event) => event.status === "pending")
+      .sort((a, b) => (a.submittedAt ?? "").localeCompare(b.submittedAt ?? ""));
+    return c.json({ events });
+  } catch (error) {
+    console.log(`Failed to load pending events: ${error}`);
+    return c.json({ error: "Unable to load pending events" }, 500);
+  }
+});
+
+app.post("/make-server-1f1ed1f9/events/:id/approve", reviewSubmission("approved"));
+app.post("/make-server-1f1ed1f9/events/:id/reject", reviewSubmission("rejected"));
+
+function reviewSubmission(status: "approved" | "rejected"): Handler {
+  return async (c) => {
+    try {
+      const id = c.req.param("id") ?? "";
+      if (!/^(0|[1-9]\d*)$/.test(id) || !Number.isSafeInteger(Number(id))) {
+        return c.json({ error: "Invalid event ID" }, 400);
+      }
+
+      let rejectionReason: string | undefined;
+      if (status === "rejected") {
+        let input: unknown;
+        try {
+          input = await c.req.json();
+        } catch {
+          return c.json({ error: "Invalid JSON request body" }, 400);
+        }
+        if (
+          !input || typeof input !== "object" || Array.isArray(input) ||
+          !("rejectionReason" in input) || typeof input.rejectionReason !== "string" ||
+          !input.rejectionReason.trim()
+        ) {
+          return c.json({ error: "rejectionReason is required" }, 400);
+        }
+        rejectionReason = input.rejectionReason.trim();
+      }
+
+      const key = `event:submission:${id}`;
+      const event: CommunityEvent | undefined = await kv.get(key);
+      if (!event) {
+        return c.json({ error: "Event submission not found" }, 404);
+      }
+      if (event.status !== "pending") {
+        return c.json({ error: "Event submission has already been reviewed" }, 409);
+      }
+
+      const reviewedEvent: CommunityEvent = {
+        ...event,
+        status,
+        reviewedAt: new Date().toISOString(),
+      };
+      if (status === "rejected") {
+        reviewedEvent.rejectionReason = rejectionReason;
+      } else {
+        delete reviewedEvent.rejectionReason;
+      }
+      await kv.set(key, reviewedEvent);
+      return c.json({ event: reviewedEvent });
+    } catch (error) {
+      console.log(`Failed to review event submission: ${error}`);
+      return c.json({ error: "Unable to review event submission" }, 500);
+    }
+  };
+}
 
 function eventMonthNumber(month: string) {
   return ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"].indexOf(month) + 1;

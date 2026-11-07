@@ -57,3 +57,22 @@ from the calendar date. Client-provided IDs and review metadata are ignored.
 Records are saved under `event:submission:{id}` and remain excluded from
 `GET /events` until approved. Invalid submissions return `400`; failed KV writes
 return `500` without reporting success.
+
+## Staff moderation API
+
+These routes use the staff PIN headers described above:
+
+- `GET /make-server-1f1ed1f9/events/pending` returns `{ "events": [...] }`,
+  containing only pending submissions, oldest submission first.
+- `POST /make-server-1f1ed1f9/events/:id/approve` approves a pending submission;
+  no request body is required.
+- `POST /make-server-1f1ed1f9/events/:id/reject` rejects a pending submission and
+  requires JSON such as `{ "rejectionReason": "Please confirm the venue." }`.
+
+Both review actions persist `reviewedAt` and return `200` with `{ "event": { ... } }`.
+Approval makes the event available on the next public `GET /events` request.
+Rejection saves the trimmed reason and keeps the event off the public list.
+Both actions remove the event from the pending queue.
+Invalid IDs or rejection bodies return `400`, unknown submissions return `404`,
+already reviewed submissions return `409`, and storage failures return `500`.
+These actions address submission records only; seeded events are not moderated.
