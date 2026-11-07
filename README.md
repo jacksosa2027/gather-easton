@@ -1,6 +1,3 @@
-
-
-
 # Greater Easton Development Project (GEDP) Website
 
 GEDP is a website which is a scraper and business powered website which collects a myraid of events happening in downtown Easton so that both tourists and residents can view all of the events happening in downtown Easton on any given day.
@@ -21,7 +18,7 @@ During a meeting with the clients Ella and Julie, Ella stated that she spent abo
 | User Group | Need |
 | --- | --- |
 | Residents, visitors | Browse upcoming and future events, understand when they are, and what they are |
-| Businesses and event organizers | Submit event information, via  a short form |
+| Businesses and event organizers | Submit event information, via a short form |
 | GEDP / Easton Main Street staff | Review submissions, manage published events, avoid duplicate events |
 
 ## Workflow

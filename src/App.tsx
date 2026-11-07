@@ -1,4 +1,7 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { projectId, publicAnonKey } from "../utils/supabase/info";
+import { novemberEvents } from "./data/novemberEvents";
+import { createGoogleCalendarUrl } from "./utils/googleCalendar";
 
 const images = {
   hero: "https://images.unsplash.com/photo-1731094114672-f6f446490ebb?crop=entropy&cs=tinysrgb&fit=crop&fm=jpg&q=85&w=1800",
@@ -63,6 +66,7 @@ type CommunityEvent = {
   id: number;
   title: string;
   category: string;
+  year?: number;
   date: string;
   month: string;
   day: string;
@@ -298,20 +302,40 @@ const categories = [
   "Sports & Recreation",
 ];
 
+const eventMonthIndexes: Record<string, number> = {
+  JAN: 0,
+  FEB: 1,
+  MAR: 2,
+  APR: 3,
+  MAY: 4,
+  JUN: 5,
+  JUL: 6,
+  AUG: 7,
+  SEP: 8,
+  OCT: 9,
+  NOV: 10,
+  DEC: 11,
+};
+
+const weekDays = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
 export default function App() {
   const [submittedEvents, setSubmittedEvents] = useState<CommunityEvent[]>([]);
+  const [databaseEvents, setDatabaseEvents] = useState<CommunityEvent[]>(novemberEvents);
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState("All events");
-  const [saved, setSaved] = useState<number[]>([]);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState<CommunityEvent | null>(null);
   const [submitOpen, setSubmitOpen] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [upload, setUpload] = useState<{ name: string; url: string } | null>(null);
   const [calendarOpen, setCalendarOpen] = useState(false);
-  const [eventCalendarOpen, setEventCalendarOpen] = useState(false);
+  const [visibleMonth, setVisibleMonth] = useState(() => {
+    const today = new Date();
+    return new Date(today.getFullYear(), today.getMonth(), 1);
+  });
   const [connectedCalendar, setConnectedCalendar] = useState<"Google" | "Apple" | null>(null);
-  const events = [...submittedEvents, ...initialEvents];
+  const events = [...submittedEvents, ...initialEvents, ...databaseEvents];
   const selectedEventSourceUrl = selectedEvent
     ? initialEvents.find((event) => event.id === selectedEvent.id)?.sourceUrl ?? selectedEvent.sourceUrl
     : undefined;
@@ -325,8 +349,79 @@ export default function App() {
             .toLowerCase()
             .includes(query.toLowerCase()),
       ),
-    [category, query],
+    [category, query, submittedEvents, databaseEvents],
   );
+
+  useEffect(() => {
+    const controller = new AbortController();
+
+    async function loadEvents() {
+      try {
+        const response = await fetch(
+          `https://${projectId}.supabase.co/functions/v1/make-server-1f1ed1f9/events`,
+          {
+            headers: { Authorization: `Bearer ${publicAnonKey}` },
+            signal: controller.signal,
+          },
+        );
+
+        if (!response.ok) return;
+        const data = await response.json();
+        if (Array.isArray(data.events)) setDatabaseEvents(data.events);
+      } catch (error) {
+        if ((error as Error).name !== "AbortError") {
+          console.error("Unable to load database events", error);
+        }
+      }
+    }
+
+    loadEvents();
+    return () => controller.abort();
+  }, []);
+
+  const visibleMonthEvents = filteredEvents.filter(
+    (event) =>
+      (event.year ?? 2026) === visibleMonth.getFullYear() &&
+      eventMonthIndexes[event.month] === visibleMonth.getMonth(),
+  );
+  const daysInVisibleMonth = new Date(
+    visibleMonth.getFullYear(),
+    visibleMonth.getMonth() + 1,
+    0,
+  ).getDate();
+  const firstWeekDay = new Date(
+    visibleMonth.getFullYear(),
+    visibleMonth.getMonth(),
+    1,
+  ).getDay();
+  const calendarDays = Array.from(
+    { length: Math.ceil((firstWeekDay + daysInVisibleMonth) / 7) * 7 },
+    (_, index) => {
+      const day = index - firstWeekDay + 1;
+      return day > 0 && day <= daysInVisibleMonth ? day : null;
+    },
+  );
+  const visibleMonthLabel = visibleMonth.toLocaleDateString("en-US", {
+    month: "long",
+    year: "numeric",
+  });
+
+  function changeMonth(offset: number) {
+    setVisibleMonth(
+      (current) => new Date(current.getFullYear(), current.getMonth() + offset, 1),
+    );
+  }
+
+  function addToGoogleCalendar(event: CommunityEvent) {
+    const calendarUrl = createGoogleCalendarUrl({
+      ...event,
+      sourceUrl:
+        initialEvents.find((initialEvent) => initialEvent.id === event.id)?.sourceUrl ??
+        event.sourceUrl,
+    });
+    const calendarWindow = window.open(calendarUrl, "_blank", "noopener,noreferrer");
+    if (calendarWindow) calendarWindow.opener = null;
+  }
 
   function scrollToEvents() {
     document.querySelector("#events")?.scrollIntoView({ behavior: "smooth" });
@@ -353,6 +448,7 @@ export default function App() {
         id: Date.now(),
         title: String(form.get("title")),
         category: String(form.get("category")),
+        year: eventDate.getFullYear(),
         date: String(eventDate.getDate()).padStart(2, "0"),
         month: eventDate.toLocaleDateString("en-US", { month: "short" }).toUpperCase(),
         day: eventDate.toLocaleDateString("en-US", {
@@ -465,14 +561,25 @@ export default function App() {
               <p className="section-kicker">Plan something good</p>
               <h2>Happening soon</h2>
             </div>
-            <button
-              className="text-button"
-              type="button"
-              aria-haspopup="dialog"
-              onClick={() => setEventCalendarOpen(true)}
-            >
-              View calendar <Icon name="arrow" />
-            </button>
+            <div className="month-navigation" aria-label="Calendar month navigation">
+              <button
+                className="month-arrow previous"
+                type="button"
+                onClick={() => changeMonth(-1)}
+                aria-label="View previous month"
+              >
+                <Icon name="chevron" />
+              </button>
+              <p aria-live="polite">{visibleMonthLabel}</p>
+              <button
+                className="month-arrow"
+                type="button"
+                onClick={() => changeMonth(1)}
+                aria-label="View next month"
+              >
+                <Icon name="chevron" />
+              </button>
+            </div>
           </div>
 
           <div className="category-row" aria-label="Filter by category">
@@ -488,56 +595,52 @@ export default function App() {
             ))}
           </div>
 
-          {filteredEvents.length ? (
-            <div className="event-grid">
-              {filteredEvents.map((event) => (
-                <article className="event-card" key={event.id}>
-                  <button
-                    className="event-image-wrap"
-                    type="button"
-                    onClick={() => setSelectedEvent(event)}
-                    aria-label={`View ${event.title}`}
+          <div className="month-calendar">
+            <div className="calendar-weekdays" aria-hidden="true">
+              {weekDays.map((day) => <span key={day}>{day}</span>)}
+            </div>
+            <div className="calendar-grid">
+              {calendarDays.map((day, index) => {
+                const dayEvents = day
+                  ? visibleMonthEvents.filter((event) => Number(event.date) === day)
+                  : [];
+
+                return (
+                  <div
+                    className={day ? "calendar-day" : "calendar-day outside-month"}
+                    key={`${visibleMonthLabel}-${index}`}
                   >
-                    <img className="event-image" src={event.image} alt={event.alt} />
-                    <span className="event-category">{event.category}</span>
-                  </button>
-                  <div className="event-body">
-                    <div className="date-block">
-                      <strong>{event.date}</strong>
-                      <span>{event.month}</span>
-                    </div>
-                    <div className="event-info">
-                      <p className="event-title">{event.title}</p>
-                      <p><Icon name="clock" /> {event.time}</p>
-                      <p><Icon name="location" /> {event.location}</p>
-                    </div>
-                    <button
-                      className={`save-button ${saved.includes(event.id) ? "saved" : ""}`}
-                      type="button"
-                      aria-label={saved.includes(event.id) ? "Remove from saved events" : "Save event"}
-                      onClick={() =>
-                        setSaved((current) =>
-                          current.includes(event.id)
-                            ? current.filter((id) => id !== event.id)
-                            : [...current, event.id],
-                        )
-                      }
-                    >
-                      <Icon name="heart" filled={saved.includes(event.id)} />
-                    </button>
+                    {day && (
+                      <>
+                        <span className="calendar-day-number">{day}</span>
+                        <div className="calendar-day-events">
+                          {dayEvents.map((event) => (
+                            <button
+                              className="calendar-event"
+                              type="button"
+                              key={event.id}
+                              onClick={() => setSelectedEvent(event)}
+                              aria-label={`View ${event.title}, ${event.time}`}
+                            >
+                              <span>{event.time.split(" – ")[0]}</span>
+                              <strong>{event.title}</strong>
+                            </button>
+                          ))}
+                        </div>
+                      </>
+                    )}
                   </div>
-                </article>
-              ))}
+                );
+              })}
             </div>
-          ) : (
-            <div className="empty-state">
-              <Icon name="calendar" />
-              <p>No events match your search yet.</p>
-              <button type="button" onClick={() => { setQuery(""); setCategory("All events"); }}>
-                Clear filters
-              </button>
-            </div>
-          )}
+            {!visibleMonthEvents.length && (
+              <div className="calendar-empty">
+                <Icon name="calendar" />
+                <p>No matching events this month.</p>
+                <span>Try another month or adjust your filters.</span>
+              </div>
+            )}
+          </div>
         </div>
       </section>
 
@@ -584,60 +687,6 @@ export default function App() {
         </div>
       </footer>
 
-      {eventCalendarOpen && (
-        <div
-          className="modal-backdrop"
-          role="presentation"
-          onMouseDown={() => setEventCalendarOpen(false)}
-        >
-          <div
-            className="event-calendar-modal"
-            role="dialog"
-            aria-modal="true"
-            aria-label="Easton event calendar"
-            onMouseDown={(event) => event.stopPropagation()}
-          >
-            <button
-              className="modal-close"
-              type="button"
-              onClick={() => setEventCalendarOpen(false)}
-              aria-label="Close event calendar"
-            >
-              <Icon name="x" />
-            </button>
-            <div className="event-calendar-heading">
-              <p className="section-kicker">Upcoming in Easton</p>
-              <h2>Community calendar</h2>
-              <p>Select an event to see its full details and official listing.</p>
-            </div>
-            <div className="event-calendar-list">
-              {events.map((event) => (
-                <button
-                  className="event-calendar-row"
-                  type="button"
-                  key={event.id}
-                  onClick={() => {
-                    setEventCalendarOpen(false);
-                    setSelectedEvent(event);
-                  }}
-                >
-                  <span className="calendar-row-date">
-                    <strong>{event.date}</strong>
-                    <small>{event.month}</small>
-                  </span>
-                  <span className="calendar-row-info">
-                    <span className="calendar-row-category">{event.category}</span>
-                    <strong>{event.title}</strong>
-                    <small>{event.time} · {event.location}</small>
-                  </span>
-                  <Icon name="chevron" />
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
-
       {selectedEvent && (
         <div className="modal-backdrop" role="presentation" onMouseDown={() => setSelectedEvent(null)}>
           <div
@@ -661,7 +710,13 @@ export default function App() {
               </div>
               <p className="modal-description">{selectedEvent.description}</p>
               <div className="modal-actions">
-                <button className="primary-button" type="button">Add to my calendar <Icon name="arrow" /></button>
+                <button
+                  className="primary-button"
+                  type="button"
+                  onClick={() => addToGoogleCalendar(selectedEvent)}
+                >
+                  Add to Google Calendar <Icon name="arrow" />
+                </button>
                 {selectedEventSourceUrl && (
                   <a
                     className="source-link"
