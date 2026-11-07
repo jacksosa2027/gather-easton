@@ -1,0 +1,61 @@
+{
+  "environment": "Actual Chromium + Vite frontend + current Hono function source; only KV adapter replaced with isolated JSON-file storage",
+  "clock": "2026-11-07 12:00 America/New_York",
+  "live": {
+    "endpoint": "GET /make-server-1f1ed1f9/events/pending",
+    "status": 404,
+    "body": "404 Not Found",
+    "staffPinProvided": false,
+    "rejectionRequestsSent": 0,
+    "precedingHostedSubmissionStatus": 404,
+    "precedingHostedSubmissionCreated": false,
+    "verdict": "blocked: hosted staff queue route unavailable; no hosted test record exists to reject"
+  },
+  "local": [
+    {
+      "device": "desktop",
+      "sourceTestTitle": "QA pending privacy control",
+      "id": 9901,
+      "emptyReasonBlockedWithoutRequest": true,
+      "whitespaceReasonBlockedWithoutRequest": true,
+      "cancelLeavesEventPendingWithoutRequest": true,
+      "rejectStatus": 200,
+      "rejectionRequestsSent": 1,
+      "status": "rejected",
+      "rejectionReason": "Venue and organizer details could not be verified (desktop verification).",
+      "reviewedAt": "2026-11-07T22:24:19.518Z",
+      "submissionTimeAndSourcePreserved": true,
+      "removedFromPendingQueue": true,
+      "excludedFromPublicApiBeforeAndAfterRejection": true,
+      "absentFromCalendarWithMatchingFilters": true,
+      "rejectedRecordAndReasonPersistAfterApiRecreationAndPageReload": true,
+      "absentFromStaffQueueAfterReload": true,
+      "absentInAnonymousBrowserContext": true,
+      "existingApprovedEventsRemainPublic": true,
+      "approveRejectedRecordStatus": 409
+    },
+    {
+      "device": "mobile",
+      "sourceTestTitle": "QA rejection mobile cc4e30b0",
+      "id": 5458400882021783,
+      "emptyReasonBlockedWithoutRequest": true,
+      "whitespaceReasonBlockedWithoutRequest": true,
+      "cancelLeavesEventPendingWithoutRequest": true,
+      "rejectStatus": 200,
+      "rejectionRequestsSent": 1,
+      "status": "rejected",
+      "rejectionReason": "Venue and organizer details could not be verified (mobile verification).",
+      "reviewedAt": "2026-11-07T22:24:20.606Z",
+      "submissionTimeAndSourcePreserved": true,
+      "removedFromPendingQueue": true,
+      "excludedFromPublicApiBeforeAndAfterRejection": true,
+      "absentFromCalendarWithMatchingFilters": true,
+      "rejectedRecordAndReasonPersistAfterApiRecreationAndPageReload": true,
+      "absentFromStaffQueueAfterReload": true,
+      "absentInAnonymousBrowserContext": true,
+      "existingApprovedEventsRemainPublic": true,
+      "approveRejectedRecordStatus": 409
+    }
+  ],
+  "runtimeErrors": []
+}
