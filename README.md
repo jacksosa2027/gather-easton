@@ -148,6 +148,8 @@ Staff PIN unlock and approval passed with the same isolated setup: approved reco
 
 Rejection with a reason passed on desktop/mobile with isolated persistent storage: the reason and review timestamp survived reload, and rejected records stayed out of the pending queue, public API, and calendar, including in a fresh anonymous session. Blank reasons were blocked. The hosted staff queue still returned `404`; no live rejection was attempted. See the [rejection verification report](docs/verification/sprint3-rejection.md).
 
+Required-field validation passed on desktop/mobile: each missing event field, blank PIN, and blank rejection reason was blocked before an API request. Verification also fixed whitespace-only event names, venues, and descriptions; optional source/image fields still permit a complete submission. All local Sprint 3 verification steps have now passed; the hosted walkthrough remains pending. See the [form validation report](docs/verification/sprint3-validation.md).
+
 ## Event submission API
 
 `POST /make-server-1f1ed1f9/events` accepts a JSON event object without a staff PIN.

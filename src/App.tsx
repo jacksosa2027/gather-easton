@@ -499,6 +499,13 @@ export default function App() {
     setStaffReviewOpen(true);
   }
 
+  function validateRequiredText(event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) {
+    const field = event.currentTarget;
+    field.setCustomValidity(
+      field.value && !field.value.trim() ? "Enter at least one non-space character." : "",
+    );
+  }
+
   async function submitEvent(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (submissionInFlight.current) return;
@@ -908,7 +915,7 @@ export default function App() {
                   <div className="form-grid">
                     <label className="form-field full-field">
                       <span>Event name</span>
-                      <input name="title" required placeholder="e.g. Riverside movie night" />
+                      <input name="title" required onChange={validateRequiredText} placeholder="e.g. Riverside movie night" />
                     </label>
 
                     <label className="form-field">
@@ -921,7 +928,7 @@ export default function App() {
 
                     <label className="form-field">
                       <span>Venue or location</span>
-                      <input name="location" required placeholder="Where is it happening?" />
+                      <input name="location" required onChange={validateRequiredText} placeholder="Where is it happening?" />
                     </label>
 
                     <label className="form-field">
@@ -939,6 +946,7 @@ export default function App() {
                       <textarea
                         name="description"
                         required
+                        onChange={validateRequiredText}
                         rows={4}
                         placeholder="What should people know about your event?"
                       />

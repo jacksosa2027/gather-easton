@@ -1,0 +1,108 @@
+{
+  "environment": "Actual Chromium + Vite frontend + current Hono function source; only KV adapter replaced with isolated JSON-file storage",
+  "clock": "2026-11-07 12:00 America/New_York",
+  "local": [
+    {
+      "device": "desktop",
+      "requiredFields": [
+        {
+          "field": "title",
+          "emptyBlockedWithoutRequest": true,
+          "invalidFieldFocused": true,
+          "whitespaceBlockedWithoutRequest": true,
+          "correctionClearsValidationError": true
+        },
+        {
+          "field": "category",
+          "emptyBlockedWithoutRequest": true,
+          "invalidFieldFocused": true
+        },
+        {
+          "field": "location",
+          "emptyBlockedWithoutRequest": true,
+          "invalidFieldFocused": true,
+          "whitespaceBlockedWithoutRequest": true,
+          "correctionClearsValidationError": true
+        },
+        {
+          "field": "date",
+          "emptyBlockedWithoutRequest": true,
+          "invalidFieldFocused": true
+        },
+        {
+          "field": "time",
+          "emptyBlockedWithoutRequest": true,
+          "invalidFieldFocused": true
+        },
+        {
+          "field": "description",
+          "emptyBlockedWithoutRequest": true,
+          "invalidFieldFocused": true,
+          "whitespaceBlockedWithoutRequest": true,
+          "correctionClearsValidationError": true
+        }
+      ],
+      "emptyFormBlockedWithoutRequest": true,
+      "keyboardSubmissionBlockedWithoutRequest": true,
+      "malformedAndNonHttpSourceUrlsBlockedWithoutRequest": true,
+      "optionalSourceAndImageMayBeEmpty": true,
+      "validSubmissionStatus": 201,
+      "blankAndWhitespacePinBlockedWithoutQueueRequest": true,
+      "blankAndWhitespaceRejectionReasonBlockedWithoutRequest": true,
+      "invalidAttemptsPreservePendingRecord": true,
+      "submissionRequestsIncludingInvalidAttempts": 1
+    },
+    {
+      "device": "mobile",
+      "requiredFields": [
+        {
+          "field": "title",
+          "emptyBlockedWithoutRequest": true,
+          "invalidFieldFocused": true,
+          "whitespaceBlockedWithoutRequest": true,
+          "correctionClearsValidationError": true
+        },
+        {
+          "field": "category",
+          "emptyBlockedWithoutRequest": true,
+          "invalidFieldFocused": true
+        },
+        {
+          "field": "location",
+          "emptyBlockedWithoutRequest": true,
+          "invalidFieldFocused": true,
+          "whitespaceBlockedWithoutRequest": true,
+          "correctionClearsValidationError": true
+        },
+        {
+          "field": "date",
+          "emptyBlockedWithoutRequest": true,
+          "invalidFieldFocused": true
+        },
+        {
+          "field": "time",
+          "emptyBlockedWithoutRequest": true,
+          "invalidFieldFocused": true
+        },
+        {
+          "field": "description",
+          "emptyBlockedWithoutRequest": true,
+          "invalidFieldFocused": true,
+          "whitespaceBlockedWithoutRequest": true,
+          "correctionClearsValidationError": true
+        }
+      ],
+      "emptyFormBlockedWithoutRequest": true,
+      "keyboardSubmissionBlockedWithoutRequest": true,
+      "malformedAndNonHttpSourceUrlsBlockedWithoutRequest": true,
+      "optionalSourceAndImageMayBeEmpty": true,
+      "validSubmissionStatus": 201,
+      "blankAndWhitespacePinBlockedWithoutQueueRequest": true,
+      "blankAndWhitespaceRejectionReasonBlockedWithoutRequest": true,
+      "invalidAttemptsPreservePendingRecord": true,
+      "submissionRequestsIncludingInvalidAttempts": 1
+    }
+  ],
+  "runtimeErrors": [],
+  "failures": []
+}
