@@ -741,13 +741,13 @@ export default function App() {
             </button>
 
             {submitted ? (
-              <div className="submission-success">
+              <div className="submission-success" role="status" aria-live="polite">
                 <span className="success-icon"><Icon name="spark" /></span>
-                <p className="section-kicker">Submission received</p>
-                <h2>Thanks for sharing your event.</h2>
+                <p className="section-kicker">Submission saved</p>
+                <h2>Awaiting review.</h2>
                 <p>
-                  Your event has been saved and is awaiting staff review. It will appear
-                  on the public calendar after approval.
+                  Your event has been saved for staff review. It will stay off the
+                  public calendar until a staff member approves it.
                 </p>
                 <div className="success-actions">
                   <button
