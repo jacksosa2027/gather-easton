@@ -1,7 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from "react"
+import type { CommunityEvent } from "../../supabase/functions/_shared/events"
 import { EventsApiError, eventsApi } from "../utils/eventsApi"
 
 const PIN_STORAGE_KEY = "gedp:staff-pin"
+
+function pendingSubmissions(events: CommunityEvent[]) {
+  return events
+    .filter((event) => event.status === "pending")
+    .sort((a, b) => (a.submittedAt ?? "").localeCompare(b.submittedAt ?? ""))
+}
 
 function forgetSavedPin() {
   try {
@@ -17,6 +24,9 @@ export default function useStaffAccess() {
   const [isChecking, setIsChecking] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [remembered, setRemembered] = useState(false)
+  const [pendingEvents, setPendingEvents] = useState<CommunityEvent[]>([])
+  const [isRefreshing, setIsRefreshing] = useState(false)
+  const [queueError, setQueueError] = useState<string | null>(null)
   const verification = useRef<AbortController | null>(null)
 
   const unlock = useCallback(async (value: string) => {
@@ -33,7 +43,9 @@ export default function useStaffAccess() {
     setError(null)
 
     try {
-      await eventsApi.pending(candidate, { signal: controller.signal })
+      const events = await eventsApi.pending(candidate, {
+        signal: controller.signal,
+      })
       if (controller.signal.aborted) return
 
       let saved = false
@@ -45,10 +57,13 @@ export default function useStaffAccess() {
       }
       setRemembered(saved)
       setStaffPin(candidate)
+      setPendingEvents(pendingSubmissions(events))
+      setQueueError(null)
       setPin("")
     } catch (failure) {
       if (controller.signal.aborted) return
       setStaffPin(null)
+      setPendingEvents([])
       if (
         failure instanceof EventsApiError &&
         (failure.status === 401 || failure.status === 403)
@@ -100,7 +115,61 @@ export default function useStaffAccess() {
     setError(null)
     setRemembered(false)
     setIsChecking(false)
+    setPendingEvents([])
+    setQueueError(null)
+    setIsRefreshing(false)
   }, [])
 
-  return { pin, setPin, staffPin, isChecking, error, remembered, unlock, lock }
+  const refresh = useCallback(async () => {
+    if (!staffPin || verification.current) return
+    const controller = new AbortController()
+    verification.current = controller
+    setIsRefreshing(true)
+    setQueueError(null)
+
+    try {
+      const events = await eventsApi.pending(staffPin, {
+        signal: controller.signal,
+      })
+      if (controller.signal.aborted) return
+      setPendingEvents(pendingSubmissions(events))
+    } catch (failure) {
+      if (controller.signal.aborted) return
+      if (
+        failure instanceof EventsApiError &&
+        (failure.status === 401 || failure.status === 403)
+      ) {
+        lock()
+        setError(
+          "Your staff access is no longer valid. Enter the staff PIN again.",
+        )
+      } else {
+        setQueueError(
+          failure instanceof EventsApiError
+            ? failure.message
+            : "We couldn't refresh the queue. Check your connection and try again.",
+        )
+      }
+    } finally {
+      if (verification.current === controller) {
+        verification.current = null
+        setIsRefreshing(false)
+      }
+    }
+  }, [staffPin, lock])
+
+  return {
+    pin,
+    setPin,
+    staffPin,
+    isChecking,
+    error,
+    remembered,
+    unlock,
+    lock,
+    pendingEvents,
+    isRefreshing,
+    queueError,
+    refresh,
+  }
 }

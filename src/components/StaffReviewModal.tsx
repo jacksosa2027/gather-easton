@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react"
 import useStaffAccess from "../hooks/useStaffAccess"
+import PendingEventQueue from "./PendingEventQueue"
 
 type StaffReviewModalProps = {
   onClose: () => void
@@ -13,8 +14,20 @@ export default function StaffReviewModal({
   const dialogRef = useRef<HTMLDivElement>(null)
   const pinRef = useRef<HTMLInputElement>(null)
   const accessHeadingRef = useRef<HTMLHeadingElement>(null)
-  const { pin, setPin, staffPin, isChecking, error, remembered, unlock, lock } =
-    useStaffAccess()
+  const {
+    pin,
+    setPin,
+    staffPin,
+    isChecking,
+    error,
+    remembered,
+    unlock,
+    lock,
+    pendingEvents,
+    isRefreshing,
+    queueError,
+    refresh,
+  } = useStaffAccess()
 
   useEffect(() => {
     const previousFocus = returnFocusTo ?? document.activeElement
@@ -51,7 +64,14 @@ export default function StaffReviewModal({
       )
       const first = controls?.[0]
       const last = controls?.[controls.length - 1]
-      if (event.shiftKey && document.activeElement === first) {
+      const activeControl = Array.from(controls ?? []).includes(
+        document.activeElement as HTMLElement,
+      )
+      if (!activeControl) {
+        event.preventDefault()
+        if (event.shiftKey) last?.focus()
+        else first?.focus()
+      } else if (event.shiftKey && document.activeElement === first) {
         event.preventDefault()
         last?.focus()
       } else if (!event.shiftKey && document.activeElement === last) {
@@ -127,6 +147,14 @@ export default function StaffReviewModal({
               >
                 Lock staff review
               </button>
+              <PendingEventQueue
+                events={pendingEvents}
+                isRefreshing={isRefreshing}
+                error={queueError}
+                onRefresh={() => {
+                  void refresh()
+                }}
+              />
             </>
           ) : (
             <>
