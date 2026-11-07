@@ -3,6 +3,7 @@ import { cors } from "npm:hono/cors";
 import { logger } from "npm:hono/logger";
 import type { CommunityEvent } from "../_shared/events.ts";
 import * as kv from "./kv_store.tsx";
+import { requireStaffPin } from "./staff_auth.ts";
 const app = new Hono();
 // Re-seed existing KV records so legacy seeds receive approved status.
 const SEED_VERSION = 4;
@@ -732,12 +733,17 @@ app.use(
   "/*",
   cors({
     origin: "*",
-    allowHeaders: ["Content-Type", "Authorization"],
+    allowHeaders: ["Content-Type", "Authorization", "X-Staff-Pin"],
     allowMethods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     exposeHeaders: ["Content-Length"],
     maxAge: 600,
   }),
 );
+
+// Protect staff paths before their handlers are registered.
+app.use("/make-server-1f1ed1f9/events/pending", requireStaffPin);
+app.use("/make-server-1f1ed1f9/events/:id/approve", requireStaffPin);
+app.use("/make-server-1f1ed1f9/events/:id/reject", requireStaffPin);
 
 // Health check endpoint
 app.get("/make-server-1f1ed1f9/health", (c) => {

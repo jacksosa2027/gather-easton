@@ -26,3 +26,19 @@ During a meeting with the clients Ella and Julie, Ella stated that she spent abo
 1. Find an event, use tags to filter out specific events, open an event to see detail in it. Make event info easily shareable.
 2. Submit event details, include image and link, receive a confirmation of the submission awaiting review.
 3. Inspect pending docs, correct information, approve or reject submissions, provide reasoning when changes are needed.
+
+## Staff API PIN
+
+Set `STAFF_PIN` in the Supabase Edge Function environment. For local demos, put
+`STAFF_PIN=1234` in the ignored `supabase/functions/.env` file and load it with
+the Supabase CLI's `--env-file supabase/functions/.env` option. Use your own PIN
+for a deployed environment; there is no automatic fallback when it is unset.
+
+The pending queue and approve/reject paths require either
+`Authorization: Bearer <staff-pin>` or `X-Staff-Pin: <staff-pin>`.
+For calls through the Supabase gateway, use `X-Staff-Pin` alongside the existing
+`Authorization: Bearer <public-anon-key>` header.
+Missing or incorrect PINs return `401` with `{ "error": "Unauthorized" }`.
+An unset or blank `STAFF_PIN` returns `503` with
+`{ "error": "Staff access is not configured" }`.
+Public event reads and the health endpoint do not require the staff PIN.
