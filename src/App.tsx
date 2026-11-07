@@ -764,6 +764,17 @@ export default function App() {
                     />
                   </label>
 
+                  <label className="form-field full-field">
+                    <span>Source / organizer link (optional)</span>
+                    <input
+                      name="sourceUrl"
+                      type="url"
+                      pattern="https?://.+"
+                      placeholder="https://example.com/event"
+                      title="Enter a full link starting with http:// or https://."
+                    />
+                  </label>
+
                   <label className="upload-field full-field">
                     <input
                       name="image"
