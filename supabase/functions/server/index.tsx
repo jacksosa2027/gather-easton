@@ -1,10 +1,11 @@
 import { Hono } from "npm:hono";
 import { cors } from "npm:hono/cors";
 import { logger } from "npm:hono/logger";
+import type { CommunityEvent } from "../_shared/events.ts";
 import * as kv from "./kv_store.tsx";
 const app = new Hono();
 
-const seedEvents = [
+const seedEvents: CommunityEvent[] = [
   {
     id: 101,
     title: "Easton Riverside Yoga",
@@ -719,7 +720,7 @@ const seedEvents = [
     alt: "A community choir singing together",
     description: "Sing seasonal favorites with Easton community choirs or simply listen and enjoy the music.",
   },
-];
+].map((event): CommunityEvent => ({ ...event, status: "approved" }));
 
 // Enable logger
 app.use('*', logger(console.log));

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import type { CommunityEvent } from "../supabase/functions/_shared/events";
 import { projectId, publicAnonKey } from "../utils/supabase/info";
 import { novemberEvents } from "./data/novemberEvents";
 import { createGoogleCalendarUrl } from "./utils/googleCalendar";
@@ -61,22 +62,6 @@ function Icon({ name, filled = false }: { name: IconName; filled?: boolean }) {
     </svg>
   );
 }
-
-type CommunityEvent = {
-  id: number;
-  title: string;
-  category: string;
-  year?: number;
-  date: string;
-  month: string;
-  day: string;
-  time: string;
-  location: string;
-  image: string;
-  alt: string;
-  description: string;
-  sourceUrl?: string;
-};
 
 const initialEvents: CommunityEvent[] = [
   {
@@ -289,7 +274,7 @@ const initialEvents: CommunityEvent[] = [
       "Join the Easton Recreation Bureau for its annual free community visit with Santa in Centre Square.",
     sourceUrl: "https://www.facebook.com/cityofeastonpa",
   },
-];
+].map((event): CommunityEvent => ({ ...event, status: "approved" }));
 
 const categories = [
   "All events",
@@ -446,6 +431,8 @@ export default function App() {
     setSubmittedEvents((current) => [
       {
         id: Date.now(),
+        status: "pending",
+        submittedAt: new Date().toISOString(),
         title: String(form.get("title")),
         category: String(form.get("category")),
         year: eventDate.getFullYear(),
