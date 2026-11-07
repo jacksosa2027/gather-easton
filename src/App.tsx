@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import type { CommunityEvent } from "../supabase/functions/_shared/events";
-import { projectId, publicAnonKey } from "../utils/supabase/info";
 import { novemberEvents } from "./data/novemberEvents";
 import { createGoogleCalendarUrl } from "./utils/googleCalendar";
+import { eventsApi } from "./utils/eventsApi";
 
 const images = {
   hero: "https://images.unsplash.com/photo-1731094114672-f6f446490ebb?crop=entropy&cs=tinysrgb&fit=crop&fm=jpg&q=85&w=1800",
@@ -342,17 +342,8 @@ export default function App() {
 
     async function loadEvents() {
       try {
-        const response = await fetch(
-          `https://${projectId}.supabase.co/functions/v1/make-server-1f1ed1f9/events`,
-          {
-            headers: { Authorization: `Bearer ${publicAnonKey}` },
-            signal: controller.signal,
-          },
-        );
-
-        if (!response.ok) return;
-        const data = await response.json();
-        if (Array.isArray(data.events)) setDatabaseEvents(data.events);
+        const events = await eventsApi.list({ signal: controller.signal });
+        setDatabaseEvents(events);
       } catch (error) {
         if ((error as Error).name !== "AbortError") {
           console.error("Unable to load database events", error);
