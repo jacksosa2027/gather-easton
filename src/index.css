@@ -66,6 +66,8 @@ a { color: inherit; text-decoration: none; }
 .nav-links { display: flex; align-items: center; gap: 34px; font-size: 14px; font-weight: 600; }
 .nav-links > a { transition: opacity .2s ease; }
 .nav-links > a:hover { opacity: .68; }
+.staff-review-button { color: inherit; background: transparent; border: 0; padding: 8px 0; font: inherit; text-align: left; white-space: nowrap; transition: opacity .2s ease; }
+.staff-review-button:hover { opacity: .68; }
 .nav-submit {
   color: var(--white);
   border: 1px solid rgba(255,255,255,.6);
@@ -282,6 +284,12 @@ footer { background: var(--cream); padding: 38px 0; }
 .calendar-row-info > small { color: var(--muted); font-size: 11px; line-height: 1.4; }
 .calendar-row-category { color: var(--green); font-size: 9px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; }
 
+.staff-review-modal { width: min(760px, 100%); max-height: calc(100vh - 48px); overflow: auto; position: relative; background: var(--paper); border-radius: 14px; box-shadow: 0 30px 80px rgba(0,0,0,.35); padding: 48px; }
+.staff-review-heading h2 { font-size: 48px; line-height: 1; }
+.staff-review-heading > p:last-child, .staff-review-body p { color: var(--muted); line-height: 1.6; margin: 14px 0 0; }
+.staff-review-body { border: 1px solid var(--line); border-radius: 10px; padding: 24px; margin-top: 28px; background: var(--white); }
+.staff-review-body h3 { margin: 0; font-size: 16px; }
+
 .submit-modal {
   width: min(850px, 100%);
   max-height: calc(100vh - 48px);
@@ -421,8 +429,7 @@ footer { background: var(--cream); padding: 38px 0; }
 .calendar-connected > p:not(.section-kicker) { max-width: 410px; margin: 16px 0 28px; }
 .disconnect-button { border: 0; background: transparent; color: var(--muted); font-size: 12px; text-decoration: underline; margin-top: 20px; }
 
-@media (max-width: 850px) {
-  .shell { width: min(100% - 32px, 700px); }
+@media (max-width: 1050px) {
   .nav { height: 76px; }
   .menu-button { display: block; z-index: 2; }
   .nav-links { display: none; position: absolute; inset: 68px 0 auto; background: var(--paper); color: var(--ink); padding: 24px; border-radius: 10px; flex-direction: column; align-items: stretch; gap: 18px; box-shadow: 0 12px 35px rgba(0,0,0,.2); }
@@ -431,6 +438,10 @@ footer { background: var(--cream); padding: 38px 0; }
   .calendar-button { color: var(--ink); }
   .calendar-button .icon { color: var(--green); }
   .profile-button { display: none; }
+}
+
+@media (max-width: 850px) {
+  .shell { width: min(100% - 32px, 700px); }
   .hero { min-height: 720px; }
   .hero-content { padding-top: 90px; padding-bottom: 180px; }
   .hero-image { object-position: 60% center; }
@@ -472,6 +483,9 @@ footer { background: var(--cream); padding: 38px 0; }
   .event-modal > img { height: 220px; min-height: 0; }
   .modal-content { padding: 38px 24px 28px; }
   .modal-content h2 { font-size: 37px; }
+  .staff-review-modal { padding: 46px 24px 30px; }
+  .staff-review-heading h2 { font-size: 39px; }
+  .staff-review-body { padding: 20px; }
   .event-calendar-heading { padding: 42px 24px 24px; }
   .event-calendar-heading h2 { font-size: 39px; }
   .event-calendar-list { padding: 8px 14px 22px; }

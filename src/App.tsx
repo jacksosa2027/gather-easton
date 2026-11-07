@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { CommunityEvent } from "../supabase/functions/_shared/events";
+import StaffReviewModal from "./components/StaffReviewModal";
 import { novemberEvents } from "./data/novemberEvents";
 import { createGoogleCalendarUrl } from "./utils/googleCalendar";
 import { EventsApiError, eventsApi } from "./utils/eventsApi";
@@ -317,6 +318,9 @@ export default function App() {
   const submissionInFlight = useRef(false);
   const [upload, setUpload] = useState<{ name: string; url: string } | null>(null);
   const [calendarOpen, setCalendarOpen] = useState(false);
+  const [staffReviewOpen, setStaffReviewOpen] = useState(false);
+  const staffReviewReturnFocus = useRef<HTMLElement | null>(null);
+  const mobileMenuButton = useRef<HTMLButtonElement>(null);
   const [visibleMonth, setVisibleMonth] = useState(() => {
     const today = new Date();
     return new Date(today.getFullYear(), today.getMonth(), 1);
@@ -417,6 +421,13 @@ export default function App() {
     setSubmitOpen(true);
   }
 
+  function openStaffReview(event: React.MouseEvent<HTMLButtonElement>) {
+    if (submissionInFlight.current) return;
+    staffReviewReturnFocus.current = mobileOpen ? mobileMenuButton.current : event.currentTarget;
+    setMobileOpen(false);
+    setStaffReviewOpen(true);
+  }
+
   async function submitEvent(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (submissionInFlight.current) return;
@@ -479,6 +490,16 @@ export default function App() {
             <a href="#events" onClick={() => setMobileOpen(false)}>Find events</a>
             <a href="#discover" onClick={() => setMobileOpen(false)}>Explore Easton</a>
             <button
+              className="staff-review-button"
+              type="button"
+              aria-haspopup="dialog"
+              aria-controls="staff-review-dialog"
+              aria-expanded={staffReviewOpen}
+              onClick={openStaffReview}
+            >
+              Staff review
+            </button>
+            <button
               className="calendar-button"
               type="button"
               onClick={() => {
@@ -497,6 +518,7 @@ export default function App() {
           <button
             className="menu-button"
             type="button"
+            ref={mobileMenuButton}
             aria-label={mobileOpen ? "Close menu" : "Open menu"}
             onClick={() => setMobileOpen(!mobileOpen)}
           >
@@ -860,6 +882,13 @@ export default function App() {
             )}
           </div>
         </div>
+      )}
+
+      {staffReviewOpen && (
+        <StaffReviewModal
+          onClose={() => setStaffReviewOpen(false)}
+          returnFocusTo={staffReviewReturnFocus.current}
+        />
       )}
 
       {calendarOpen && (
