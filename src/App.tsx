@@ -305,7 +305,6 @@ const eventMonthIndexes: Record<string, number> = {
 const weekDays = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 export default function App() {
-  const [submittedEvents, setSubmittedEvents] = useState<CommunityEvent[]>([]);
   const [databaseEvents, setDatabaseEvents] = useState<CommunityEvent[]>(novemberEvents);
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState("All events");
@@ -320,7 +319,10 @@ export default function App() {
     return new Date(today.getFullYear(), today.getMonth(), 1);
   });
   const [connectedCalendar, setConnectedCalendar] = useState<"Google" | "Apple" | null>(null);
-  const events = [...submittedEvents, ...initialEvents, ...databaseEvents];
+  const events = useMemo(
+    () => [...initialEvents, ...databaseEvents].filter((event) => event.status === "approved"),
+    [databaseEvents],
+  );
   const selectedEventSourceUrl = selectedEvent
     ? initialEvents.find((event) => event.id === selectedEvent.id)?.sourceUrl ?? selectedEvent.sourceUrl
     : undefined;
@@ -334,7 +336,7 @@ export default function App() {
             .toLowerCase()
             .includes(query.toLowerCase()),
       ),
-    [category, query, submittedEvents, databaseEvents],
+    [category, query, events],
   );
 
   useEffect(() => {
@@ -411,39 +413,6 @@ export default function App() {
 
   function submitEvent(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const form = new FormData(event.currentTarget);
-    const eventDate = new Date(`${form.get("date")}T12:00:00`);
-    const startTime = String(form.get("time"));
-    const formattedTime = new Intl.DateTimeFormat("en-US", {
-      hour: "numeric",
-      minute: "2-digit",
-    }).format(new Date(`2025-01-01T${startTime}`));
-
-    setSubmittedEvents((current) => [
-      {
-        id: Date.now(),
-        status: "pending",
-        submittedAt: new Date().toISOString(),
-        title: String(form.get("title")),
-        category: String(form.get("category")),
-        year: eventDate.getFullYear(),
-        date: String(eventDate.getDate()).padStart(2, "0"),
-        month: eventDate.toLocaleDateString("en-US", { month: "short" }).toUpperCase(),
-        day: eventDate.toLocaleDateString("en-US", {
-          weekday: "long",
-          month: "long",
-          day: "numeric",
-        }),
-        time: `${formattedTime} onward`,
-        location: String(form.get("location")),
-        image: upload?.url || images.hero,
-        alt: upload ? `Uploaded image for ${form.get("title")}` : "Downtown Easton event",
-        description: String(form.get("description")),
-      },
-      ...current,
-    ]);
-    setCategory("All events");
-    setQuery("");
     setSubmitted(true);
     setUpload(null);
     event.currentTarget.reset();
@@ -726,11 +695,11 @@ export default function App() {
             {submitted ? (
               <div className="submission-success">
                 <span className="success-icon"><Icon name="spark" /></span>
-                <p className="section-kicker">Submission received</p>
-                <h2>Thanks for adding to Easton.</h2>
+                <p className="section-kicker">Submission preview</p>
+                <h2>Thanks for trying the form.</h2>
                 <p>
-                  Your event has been added to the calendar preview. A community calendar
-                  administrator would review it before publishing.
+                  This preview does not save your event yet. Events will appear on the
+                  public calendar after staff review.
                 </p>
                 <div className="success-actions">
                   <button
