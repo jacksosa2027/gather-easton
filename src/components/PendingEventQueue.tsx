@@ -1,4 +1,6 @@
+import { useEffect, useRef } from "react"
 import type { CommunityEvent } from "../../supabase/functions/_shared/events"
+import type { ReviewAction, ReviewProgress } from "../hooks/useStaffAccess"
 import PendingEventCard from "./PendingEventCard"
 
 type PendingEventQueueProps = {
@@ -6,6 +8,10 @@ type PendingEventQueueProps = {
   isRefreshing: boolean
   error: string | null
   onRefresh: () => void
+  reviewing: ReviewProgress | null
+  reviewErrors: Record<number, string>
+  reviewMessage: string | null
+  onReview: (id: number, action: ReviewAction, reason?: string) => void
 }
 
 export default function PendingEventQueue({
@@ -13,20 +19,33 @@ export default function PendingEventQueue({
   isRefreshing,
   error,
   onRefresh,
+  reviewing,
+  reviewErrors,
+  reviewMessage,
+  onReview,
 }: PendingEventQueueProps) {
+  const headingRef = useRef<HTMLHeadingElement>(null)
+  const isBusy = isRefreshing || reviewing !== null
+
+  useEffect(() => {
+    if (reviewMessage) headingRef.current?.focus()
+  }, [reviewMessage, events.length])
+
   return (
     <section
       className="pending-queue"
       aria-labelledby="pending-queue-title"
-      aria-busy={isRefreshing}
+      aria-busy={isBusy}
     >
       <div className="pending-queue-heading">
-        <h3 id="pending-queue-title">Pending submissions</h3>
+        <h3 id="pending-queue-title" tabIndex={-1} ref={headingRef}>
+          Pending submissions
+        </h3>
         <button
           className="text-button"
           type="button"
           onClick={onRefresh}
-          disabled={isRefreshing}
+          disabled={isBusy}
         >
           {isRefreshing ? "Refreshing…" : "Refresh queue"}
         </button>
@@ -34,12 +53,19 @@ export default function PendingEventQueue({
       <p className="pending-queue-status" role="status" aria-live="polite">
         {isRefreshing
           ? "Refreshing pending submissions…"
-          : error
-            ? "The queue could not be updated."
-            : `${events.length} ${
-                events.length === 1 ? "submission" : "submissions"
-              } awaiting review. Oldest first.`}
+          : reviewing
+            ? "Saving review…"
+            : error
+              ? "The queue could not be updated."
+              : `${events.length} ${
+                  events.length === 1 ? "submission" : "submissions"
+                } awaiting review. Oldest first.`}
       </p>
+      {reviewMessage && (
+        <p className="pending-review-notice" role="status" aria-live="polite">
+          {reviewMessage}
+        </p>
+      )}
       {error && (
         <p className="pending-queue-error" role="alert">
           {error}{" "}
@@ -59,7 +85,14 @@ export default function PendingEventQueue({
         <ul className="pending-queue-list">
           {events.map((event) => (
             <li key={event.id}>
-              <PendingEventCard event={event} />
+              <PendingEventCard
+                event={event}
+                disabled={isBusy}
+                action={reviewing?.id === event.id ? reviewing.action : null}
+                error={reviewErrors[event.id]}
+                onApprove={() => onReview(event.id, "approve")}
+                onReject={(reason) => onReview(event.id, "reject", reason)}
+              />
             </li>
           ))}
         </ul>

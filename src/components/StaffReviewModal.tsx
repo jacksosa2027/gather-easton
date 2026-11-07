@@ -27,6 +27,10 @@ export default function StaffReviewModal({
     isRefreshing,
     queueError,
     refresh,
+    reviewing,
+    reviewErrors,
+    reviewMessage,
+    review,
   } = useStaffAccess()
 
   useEffect(() => {
@@ -153,6 +157,12 @@ export default function StaffReviewModal({
                 error={queueError}
                 onRefresh={() => {
                   void refresh()
+                }}
+                reviewing={reviewing}
+                reviewErrors={reviewErrors}
+                reviewMessage={reviewMessage}
+                onReview={(id, action, reason) => {
+                  void review(id, action, reason)
                 }}
               />
             </>

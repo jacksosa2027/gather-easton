@@ -315,6 +315,14 @@ footer { background: var(--cream); padding: 38px 0; }
 .pending-event-details dd { margin: 0; font-size: 13px; line-height: 1.5; }
 .pending-event-content .pending-event-description { color: var(--ink); white-space: pre-wrap; font-size: 14px; line-height: 1.6; margin: 20px 0 0; }
 .pending-event-source { display: inline-block; color: var(--green); text-decoration: underline; font-size: 13px; line-height: 1.5; margin-top: 18px; }
+.pending-review-actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 24px; }
+.pending-review-actions .primary-button { background: var(--green); color: var(--white); }
+.pending-reject-button { display: inline-flex; align-items: center; justify-content: center; border: 1px solid #d8a397; border-radius: 999px; background: var(--white); color: #9b3025; padding: 14px 20px; font-size: 14px; font-weight: 700; }
+.pending-review-actions button:disabled, .pending-rejection-form button:disabled { opacity: .65; cursor: not-allowed; transform: none; }
+.pending-rejection-form { display: grid; gap: 16px; margin-top: 20px; padding-top: 20px; border-top: 1px solid var(--line); }
+.pending-rejection-form > button { justify-self: start; }
+.pending-event-content .pending-review-error { color: #9b3025; font-size: 13px; margin-top: 18px; }
+.staff-review-body .pending-review-notice { color: var(--green); background: var(--green-light); border-radius: 8px; padding: 12px; font-size: 13px; }
 
 .submit-modal {
   width: min(850px, 100%);
@@ -517,6 +525,8 @@ footer { background: var(--cream); padding: 38px 0; }
   .pending-event-content { padding: 18px; }
   .pending-event-details { grid-template-columns: 1fr; }
   .pending-event-image img { height: 180px; }
+  .pending-review-actions { flex-direction: column; }
+  .pending-rejection-form > button { width: 100%; }
   .event-calendar-heading { padding: 42px 24px 24px; }
   .event-calendar-heading h2 { font-size: 39px; }
   .event-calendar-list { padding: 8px 14px 22px; }
