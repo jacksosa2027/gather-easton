@@ -4,6 +4,7 @@ import StaffReviewModal from "./components/StaffReviewModal";
 import { novemberEvents } from "./data/novemberEvents";
 import { createGoogleCalendarUrl } from "./utils/googleCalendar";
 import { EventsApiError, eventsApi } from "./utils/eventsApi";
+import { getEventDate, getEventDateRange, isEventInDateRange, type EventDateFilter } from "./utils/eventDateFilter";
 
 const images = {
   hero: "https://images.unsplash.com/photo-1731094114672-f6f446490ebb?crop=entropy&cs=tinysrgb&fit=crop&fm=jpg&q=85&w=1800",
@@ -288,21 +289,6 @@ const categories = [
   "Sports & Recreation",
 ];
 
-const eventMonthIndexes: Record<string, number> = {
-  JAN: 0,
-  FEB: 1,
-  MAR: 2,
-  APR: 3,
-  MAY: 4,
-  JUN: 5,
-  JUL: 6,
-  AUG: 7,
-  SEP: 8,
-  OCT: 9,
-  NOV: 10,
-  DEC: 11,
-};
-
 const weekDays = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 export default function App() {
@@ -312,6 +298,11 @@ export default function App() {
   const publicEventsRequest = useRef<AbortController | null>(null);
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState("All events");
+  const [dateFilter, setDateFilter] = useState<EventDateFilter>("any");
+  const currentDay = new Date().toDateString();
+  const dateRange = useMemo(() => getEventDateRange(dateFilter), [dateFilter, currentDay]);
+  const rangeLastDay = dateRange ? new Date(dateRange.end) : null;
+  rangeLastDay?.setDate(rangeLastDay.getDate() - 1);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState<CommunityEvent | null>(null);
   const [submitOpen, setSubmitOpen] = useState(false);
@@ -337,7 +328,7 @@ export default function App() {
     ? initialEvents.find((event) => event.id === selectedEvent.id)?.sourceUrl ?? selectedEvent.sourceUrl
     : undefined;
 
-  const filteredEvents = useMemo(
+  const matchingEvents = useMemo(
     () =>
       events.filter(
         (event) =>
@@ -347,6 +338,11 @@ export default function App() {
             .includes(query.toLowerCase()),
       ),
     [category, query, events],
+  );
+
+  const filteredEvents = useMemo(
+    () => matchingEvents.filter((event) => isEventInDateRange(event, dateRange)),
+    [matchingEvents, dateRange],
   );
 
   const refreshPublicEvents = useCallback(async () => {
@@ -389,11 +385,10 @@ export default function App() {
     };
   }, [refreshPublicEvents]);
 
-  const visibleMonthEvents = filteredEvents.filter(
-    (event) =>
-      (event.year ?? 2026) === visibleMonth.getFullYear() &&
-      eventMonthIndexes[event.month] === visibleMonth.getMonth(),
-  );
+  const visibleMonthEvents = filteredEvents.filter((event) => {
+    const date = getEventDate(event);
+    return date?.getFullYear() === visibleMonth.getFullYear() && date?.getMonth() === visibleMonth.getMonth();
+  });
   const daysInVisibleMonth = new Date(
     visibleMonth.getFullYear(),
     visibleMonth.getMonth() + 1,
@@ -415,6 +410,17 @@ export default function App() {
     month: "long",
     year: "numeric",
   });
+
+  function changeDateFilter(value: EventDateFilter) {
+    setDateFilter(value);
+    const range = getEventDateRange(value);
+    if (!range) return;
+    const firstMatch = matchingEvents
+      .map(getEventDate)
+      .filter((date): date is Date => date !== null && date >= range.start && date < range.end)
+      .sort((a, b) => a.getTime() - b.getTime())[0] ?? range.start;
+    setVisibleMonth(new Date(firstMatch.getFullYear(), firstMatch.getMonth(), 1));
+  }
 
   function changeMonth(offset: number) {
     setVisibleMonth(
@@ -580,11 +586,11 @@ export default function App() {
               <span>When?</span>
               <div>
                 <Icon name="calendar" />
-                <select aria-label="Choose a date">
-                  <option>Any date</option>
-                  <option>This weekend</option>
-                  <option>Next week</option>
-                  <option>This month</option>
+                <select aria-label="Choose a date" value={dateFilter} onChange={(event) => changeDateFilter(event.target.value as EventDateFilter)}>
+                  <option value="any">Any date</option>
+                  <option value="weekend">This weekend</option>
+                  <option value="week">Next week</option>
+                  <option value="month">This month</option>
                 </select>
               </div>
             </label>
@@ -645,6 +651,17 @@ export default function App() {
               </button>
             ))}
           </div>
+
+          {dateRange && rangeLastDay && (
+            <div className="date-filter-summary">
+              <p role="status">
+                Showing {dateRange.start.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                {" – "}{rangeLastDay.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}.
+                {filteredEvents.length > visibleMonthEvents.length && <span>Use the month arrows to view matching events in another month.</span>}
+              </p>
+              <button className="text-button" type="button" onClick={() => changeDateFilter("any")}>Clear date filter</button>
+            </div>
+          )}
 
           <div className="month-calendar">
             <div className="calendar-weekdays" aria-hidden="true">
