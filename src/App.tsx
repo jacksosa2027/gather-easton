@@ -605,7 +605,6 @@ export default function App() {
         </nav>
 
         <div className="hero-content shell">
-          <p className="eyebrow"><span /> Your city, all in one place</p>
           <h1>There’s always<br />something happening.</h1>
           <p className="hero-copy">
             Markets, music, art, and everything in between. Discover what’s on in Easton and make
@@ -794,7 +793,6 @@ export default function App() {
             <span className="brand-mark"><Icon name="spark" /></span>
             <span>Gather<span className="brand-dot">.</span>Easton</span>
           </a>
-          <p>One city. Every event. Your next plan.</p>
           <div>
             <a href="#events">Browse events</a>
             <button type="button" onClick={openSubmission}>Submit an event</button>
