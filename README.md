@@ -34,7 +34,7 @@ TZ=America/New_York node --experimental-strip-types --test src/utils/eventDateFi
 - `supabase/functions/_shared/` - event type shared by the function and the frontend
 - `utils/supabase/` - project id and anon key used by the frontend
 - `docs/verification/` - Sprint 3 browser and API verification notes
-- `AGENTS.md` - Figma Make / Vite scaffold notes
+- `AGENTS.md` - Standalone Vite development and code quality notes
 
 ## Known gaps
 
